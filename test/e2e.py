@@ -4,7 +4,7 @@ headless browser, asserts on what the designer would see, and saves screenshots.
 
     python3 test/e2e.py [screenshot-dir]
 """
-import os, sys, pathlib
+import os, re, sys, pathlib, threading, functools, http.server
 from playwright.sync_api import sync_playwright, expect
 
 ROOT = pathlib.Path(__file__).resolve().parent
@@ -12,19 +12,38 @@ OUT = pathlib.Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "screenshots"
 OUT.mkdir(parents=True, exist_ok=True)
 errors = []
 
+class Quiet(http.server.SimpleHTTPRequestHandler):
+    def log_message(self, *args): pass
+
+def serve():
+    handler = functools.partial(Quiet, directory=str(ROOT.parent))
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    return server
+
+def release(version, marker):
+    """The real plugin files re-stamped as another version: what a later release looks like on GitHub."""
+    code = (ROOT.parent / "code.js").read_text()
+    html = (ROOT.parent / "ui.html").read_text()
+    code = re.sub(r"var UK = \{ VERSION: '[\d.]+' \}", "var UK = { VERSION: '%s' }" % version, code)
+    html = re.sub(r'(utilitykit-version" content=")[\d.]+', r"\g<1>%s" % version, html)
+    html = html.replace("Everyday design utilities in one place.", marker)
+    return {"v": '{"version":"%s","notes":["New: something useful."]}' % version, "code": code, "html": html}
+
 def run():
     with sync_playwright() as p:
         browser = p.chromium.launch()
         page = browser.new_page(viewport={"width": 360, "height": 600}, device_scale_factor=2)
         page.on("pageerror", lambda e: errors.append(str(e)))
         page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
-        page.goto((ROOT / "harness.html").as_uri())
+        server = serve()
+        page.goto("http://127.0.0.1:%d/test/harness.html" % server.server_address[1])
         ui = page.frame_locator("#ui")
         shot = lambda name: page.screenshot(path=str(OUT / f"{name}.png"))
         ev = page.evaluate
 
         # ── Home ──
-        expect(ui.locator("#version")).to_have_text("v1.2.0")
+        expect(ui.locator("#version")).to_have_text("v1.3.0")
         expect(ui.locator("#selText")).to_have_text("0 selected")
         shot("01-home")
 
@@ -38,18 +57,19 @@ def run():
         expect(ui.locator("#toast")).to_contain_text("Couldn’t reach GitHub")
         ev("window.__versionJson = JSON.stringify({ version: UK.VERSION })")
         ui.locator("#updCheck").click()
-        expect(ui.locator("#toast")).to_have_text("You’re up to date (v1.2.0).")
+        expect(ui.locator("#toast")).to_have_text("You’re up to date (v1.3.0).")
         expect(ui.locator("#updBox")).to_be_hidden()
         ev("""window.__versionJson = JSON.stringify({ version: '9.9.0', released: '2026-11-02',
               notes: ['New: Export presets.', 'Fix: renaming inside instances.'],
               download: 'https://evil.example.com/malware.zip' })""")
         ui.locator("#updCheck").click()
         expect(ui.locator("#updBox")).to_contain_text("Version 9.9.0 is available")
-        expect(ui.locator("#updBox")).to_contain_text("You have v1.2.0. Released 2026-11-02.")
+        expect(ui.locator("#updBox")).to_contain_text("You have v1.3.0. Released 2026-11-02.")
         expect(ui.locator("#updBox li")).to_have_count(2)
         expect(ui.locator("#updCheck")).to_have_text("Check for updates")
+        expect(ui.locator('#updBox [data-act="install"]')).to_have_text("Update now")
         shot("01b-home-update")
-        ui.locator("#updBox .btn.primary").click()
+        ui.locator('#updBox [data-act="download"]').click()            # "Get the files instead"
         page.wait_for_function("env.log.opened.length === 1")
         assert ev("env.log.opened") == ["https://github.com/hiteshramawat01-oss/UtilityKit/archive/refs/heads/main.zip"], "a foreign download link is never opened"
         ev("env.log.opened.length = 0")
@@ -62,7 +82,8 @@ def run():
         ui.locator("#openSettings").click()
         expect(ui.locator("#title")).to_have_text("Settings")
         expect(ui.locator("#openSettings")).to_be_hidden()
-        expect(ui.locator("#stVersion")).to_have_text("Installed: v1.2.0")
+        expect(ui.locator("#stVersion")).to_have_text("Installed: v1.3.0")
+        expect(ui.locator("#stRemove")).to_be_hidden()
         expect(ui.locator("#stUpdBox")).to_be_hidden()               # "Later" was pressed on Home
         ev("window.__versionJson = JSON.stringify({ version: '3.0.0', notes: ['New: something.'] })")
         ui.locator("#stCheck").click()
@@ -249,8 +270,73 @@ def run():
         shot("13-renamer-dark")
         ui.locator("#back").click()
         shot("14-home-dark")
+        page.frames[1].evaluate("document.documentElement.classList.remove('figma-dark')")
+
+        # ── Update now: installs inside Figma, no files to replace ──
+        KEY = "utilitykit.update.v1"
+        load_release = "(f) => { window.__versionJson = f.v; window.__remoteFiles = { 'code.js': f.code, 'ui.html': f.html }; }"
+        saved = lambda: ev("env.storage['%s'] ? JSON.parse(env.storage['%s']) : null" % (KEY, KEY))
+
+        # a release that is only half published is refused and nothing changes
+        half = release("9.9.0", "UPDATED BUILD 9.9.0")
+        half["code"] = half["code"].replace("VERSION: '9.9.0'", "VERSION: '9.8.0'")
+        ev(load_release, half)
+        ui.locator("#updCheck").click()
+        expect(ui.locator("#updBox")).to_contain_text("Version 9.9.0 is available")
+        ui.locator('#updBox [data-act="install"]').click()
+        expect(ui.locator("#toast")).to_contain_text("still being published")
+        expect(ui.locator('#updBox [data-act="install"]')).to_have_text("Update now")
+        assert saved() is None
+        expect(ui.locator("#version")).to_have_text("v1.3.0")
+
+        # the real thing
+        ev(load_release, release("9.9.0", "UPDATED BUILD 9.9.0"))
+        ui.locator('#updBox [data-act="install"]').click()
+        expect(ui.locator("#version")).to_have_text("v9.9.0")                   # the window restarted into the new version
+        expect(ui.locator(".lede")).to_have_text("UPDATED BUILD 9.9.0")
+        expect(ui.locator("#updBox")).to_be_hidden()
+        page.wait_for_function("JSON.parse(env.storage['%s']).pending === false" % KEY)
+        assert ev("env.listeners.selectionchange.length") == 1
+        assert any("now on version 9.9.0" in n["message"] for n in ev("env.log.notifications"))
+        shot("15-updated")
+        # the updated copy is fully working
+        ev("env.select([demo.c])")
+        expect(ui.locator("#selText")).to_have_text("1 selected")
+        ui.locator('[data-go="renamer"]').click()
+        expect(ui.locator("#rnExampleName")).to_have_text("About - Design - Acme Corp - V1")   # this file's own client/phase/version came back
+        ui.locator("#back").click()
+        ui.locator("#updCheck").click()
+        expect(ui.locator("#toast")).to_have_text("You’re up to date (v9.9.0).")
+
+        # closing and reopening the plugin keeps the update
+        ev("launch()")
+        expect(ui.locator(".lede")).to_have_text("UPDATED BUILD 9.9.0")
+        expect(ui.locator("#version")).to_have_text("v9.9.0")
+        ui.locator("#openSettings").click()
+        expect(ui.locator("#stVersion")).to_have_text("Installed: v9.9.0")
+        expect(ui.locator("#stSource")).to_contain_text("The plugin folder still holds v1.3.0")
+        expect(ui.locator("#stRemove")).to_have_text("Go back to v1.3.0")
+        shot("16-settings-updated")
+
+        # going back
+        ui.locator("#stRemove").click()
+        expect(ui.locator("#version")).to_have_text("v1.3.0")
+        expect(ui.locator(".lede")).to_have_text("Everyday design utilities in one place.")
+        page.wait_for_function("env.storage['%s'] === undefined" % KEY)
+
+        # safety net: an update that started but never finished loading is dropped on the next launch
+        ui.locator("#updCheck").click()
+        ui.locator('#updBox [data-act="install"]').click()
+        expect(ui.locator("#version")).to_have_text("v9.9.0")
+        page.wait_for_function("JSON.parse(env.storage['%s']).pending === false" % KEY)
+        ev("(() => { const s = JSON.parse(env.storage['%s']); s.pending = true; env.storage['%s'] = JSON.stringify(s); })()" % (KEY, KEY))
+        ev("launch()")
+        expect(ui.locator("#version")).to_have_text("v1.3.0")
+        expect(ui.locator("#toast")).to_contain_text("Update 9.9.0 didn’t start properly")
+        assert saved() is None
 
         browser.close()
+        server.shutdown()
 
 run()
 if errors:

@@ -4,12 +4,13 @@ const path = require('path');
 const vm = require('vm');
 const createMockFigma = require('./mock-figma.js');
 
-module.exports = function load() {
+module.exports = function load(options) {
   const env = createMockFigma();
-  const sandbox = { figma: env.figma, console, __UK_HEADLESS__: true, __html__: '' };
+  if (options && options.storage) Object.assign(env.storage, options.storage);   // carry plugin storage into a new "launch"
+  const sandbox = { figma: env.figma, console, __UK_HEADLESS__: true, __html__: 'BUNDLED-UI' };
   vm.createContext(sandbox);
   const code = fs.readFileSync(path.join(__dirname, '..', 'code.js'), 'utf8');
-  vm.runInContext(code + '\n;this.UK = UK;', sandbox, { filename: 'code.js' });
+  vm.runInContext(code + '\n;this.UK = UK; this.UKLoader = UKLoader;', sandbox, { filename: 'code.js' });
   const UK = sandbox.UK;
   const events = [];
   UK._post = (m) => events.push(m);
@@ -19,5 +20,5 @@ module.exports = function load() {
     // round-trip through JSON: results must survive postMessage
     return JSON.parse(JSON.stringify(res));
   };
-  return { UK, env, call, events, sandbox };
+  return { UK, UKLoader: sandbox.UKLoader, env, call, events, sandbox, code };
 };

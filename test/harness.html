@@ -1,43 +1,44 @@
 <!DOCTYPE html>
 <!--
-  Runs the real ui.html against the real code.js, with a mock Figma underneath.
-  Same shape as inside Figma: the interface lives in an iframe and the two sides
-  only exchange messages. Open this file in a browser to click around, or let
-  test/e2e.py drive it.
+  Runs the real ui.html and the real code.js on top of a mock Figma — including
+  start-up, so the loader, "Update now" and restarts behave as they do in Figma.
+  Serve the project folder over http and open /test/harness.html
+  (test/e2e.py does this for you).
 -->
 <html><head><meta charset="utf-8"><title>UtilityKit harness</title>
 <style>html,body{margin:0;height:100%;background:#888}iframe{border:0;width:100%;height:100%;display:block}</style>
 </head><body>
 <iframe id="ui"></iframe>
-<script>var __UK_HEADLESS__ = true, __html__ = '';</script>
 <script src="mock-figma.js"></script>
 <script>
   var env = createMockFigma();
   var figma = env.figma;
-</script>
-<script src="../code.js"></script>
-<script>
   var frame = document.getElementById('ui');
-  var post = function (m) { frame.contentWindow.postMessage({ pluginMessage: JSON.parse(JSON.stringify(m)) }, '*'); };
-  UK._post = post;
-  figma.on('selectionchange', function () { UK.emit('selection', UK.selectionInfo()); });
+
+  // The plugin window: showUI loads whatever HTML the plugin hands over, as Figma does.
+  figma._showUI = function (html) { frame.srcdoc = html; };
+  figma.ui.postMessage = function (m) { frame.contentWindow.postMessage({ pluginMessage: JSON.parse(JSON.stringify(m)) }, '*'); };
+  figma.ui.resize = function (w, h) { env.log.uiSize = { width: w, height: h }; };
   window.addEventListener('message', function (e) {
     var msg = e.data && e.data.pluginMessage;
-    if (!msg || msg.type === 'result') return;
-    UK.dispatch(msg).then(post);
+    if (!msg || e.source !== frame.contentWindow) return;
+    if (figma.ui.onmessage) figma.ui.onmessage(msg);
   });
-  figma.ui.resize = function (w, h) { env.log.uiSize = { width: w, height: h }; };
 
-  // "Check for updates" reads version.json from GitHub. Here it is answered locally:
-  // set window.__versionJson to the file's text, or leave it null for "not found".
+  // GitHub, answered locally. version.json comes from __versionJson (null = not found,
+  // 'offline' = network error); code.js and ui.html come from __remoteFiles.
   window.__versionJson = null;
+  window.__remoteFiles = {};
   var realFetch = window.fetch;
   window.fetch = function (url) {
-    if (String(url).indexOf('raw.githubusercontent.com') === -1) return realFetch.apply(this, arguments);
-    (env.log.fetched = env.log.fetched || []).push(String(url));
-    var body = window.__versionJson;
+    var u = String(url);
+    var at = u.indexOf('raw.githubusercontent.com');
+    if (at === -1) return realFetch.apply(this, arguments);
+    (env.log.fetched = env.log.fetched || []).push(u);
+    var name = u.replace(/\?.*$/, '').split('/main/')[1];
+    var body = name === 'version.json' ? window.__versionJson : window.__remoteFiles[name];
     if (body === 'offline') return Promise.reject(new TypeError('Failed to fetch'));
-    return Promise.resolve(body === null
+    return Promise.resolve(body === null || body === undefined
       ? { ok: false, status: 404, text: function () { return Promise.resolve('404: Not Found'); } }
       : { ok: true, status: 200, text: function () { return Promise.resolve(body); } });
   };
@@ -51,7 +52,21 @@
     c: env.add('FRAME', { name: 'About - Design - Acme Corp - V1', x: 0, y: 1600, width: 1440, height: 800 }, art)
   };
 
-  // Load the interface last, once the plugin side is listening (as in Figma).
-  frame.src = '../ui.html';
+  /** Runs the plugin the way Figma does when it is opened: fresh listeners, code.js from the folder. */
+  window.launch = function () {
+    env.listeners.selectionchange = [];
+    env.listeners.currentpagechange = [];
+    figma.ui.onmessage = null;
+    env.log.launches = (env.log.launches || 0) + 1;
+    var s = document.createElement('script');
+    s.src = '../code.js?launch=' + env.log.launches;
+    document.body.appendChild(s);
+  };
+
+  var __html__ = '';
+  realFetch('../ui.html').then(function (r) { return r.text(); }).then(function (text) {
+    __html__ = text;
+    window.launch();
+  });
 </script>
 </body></html>

@@ -70,8 +70,11 @@
 
   var handlers = {
     'init': async function () {
+      // The interface is up and asking for data, so the running copy is good.
+      try { await UKLoader.confirm(); } catch (e) { /* confirmed next time */ }
       return {
         version: UK.VERSION,
+        install: UK.updates.installInfo(),
         settings: await loadSettings(),
         selection: selectionInfo(),
         fields: UK.naming.FIELD_LABELS,
@@ -110,6 +113,9 @@
 
     'update.check': function (payload) { return UK.updates.check(payload); },
     'update.open': function (payload) { return UK.updates.open(payload); },
+    'update.install': function () { return UK.updates.install(); },
+    'update.restart': function () { return UK.updates.restart(); },
+    'update.remove': function () { return UK.updates.remove(); },
 
     'canvas.show': async function (payload) {
       var ids = payload && Array.isArray(payload.ids) ? payload.ids : [];
@@ -162,17 +168,34 @@
   UK.handlers = handlers;
   UK.selectionInfo = selectionInfo;
 
+  var pushSelection = function () { UK.emit('selection', selectionInfo()); };
+  var running = false;
+
   UK.boot = function () {
     figma.showUI(__html__, { width: SIZE.width, height: SIZE.height, themeColors: true, title: 'UtilityKit' });
-    UK._post = function (message) { figma.ui.postMessage(message); };
+    running = true;
+    UK._post = function (message) { if (running) figma.ui.postMessage(message); };
     figma.ui.onmessage = function (msg) {
-      UK.dispatch(msg).then(function (response) { figma.ui.postMessage(response); });
+      UK.dispatch(msg).then(function (response) { if (running) figma.ui.postMessage(response); });
     };
-    var push = function () { UK.emit('selection', selectionInfo()); };
-    figma.on('selectionchange', push);
-    figma.on('currentpagechange', push);
+    figma.on('selectionchange', pushSelection);
+    figma.on('currentpagechange', pushSelection);
   };
 
-  // Tests load this file with __UK_HEADLESS__ defined and call UK.dispatch directly.
-  if (typeof __UK_HEADLESS__ === 'undefined') UK.boot();
+  /** Detaches this copy from Figma so another copy can take over (used when an update restarts the plugin). */
+  UK.shutdown = function () {
+    running = false;
+    try { figma.off('selectionchange', pushSelection); } catch (e) { /* not listening */ }
+    try { figma.off('currentpagechange', pushSelection); } catch (e2) { /* not listening */ }
+    UK._post = null;
+  };
+
+  // Start-up.
+  if (typeof __UK_DOWNLOADED__ !== 'undefined' && __UK_DOWNLOADED__ === true) {
+    UK.boot();                                 // this is a saved update, started by the loader
+  } else if (typeof __UK_HEADLESS__ === 'undefined') {
+    // Let the loader choose: a newer saved update if there is one, otherwise this copy.
+    // (Tests define __UK_HEADLESS__ and drive UK.dispatch and UKLoader themselves.)
+    UKLoader.start(function () { UK.boot(); }).catch(function () { UK.boot(); });
+  }
 })();

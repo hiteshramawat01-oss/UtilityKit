@@ -1,9 +1,9 @@
 {
-  "version": "1.2.0",
+  "version": "1.3.0",
   "released": "2026-10-10",
   "notes": [
-    "New: Settings screen, opened from the gear in the top right.",
-    "New: reset your saved naming settings from Settings."
+    "New: updates install inside Figma. Press Check for updates, then Update now.",
+    "New: Settings shows which version is running and lets you go back."
   ],
   "download": "https://github.com/hiteshramawat01-oss/UtilityKit/archive/refs/heads/main.zip",
   "page": "https://github.com/hiteshramawat01-oss/UtilityKit"

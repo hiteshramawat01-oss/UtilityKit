@@ -1,6 +1,6 @@
 # UtilityKit
 
-A Figma plugin · v1.2.0
+A Figma plugin · v1.3.0
 
 Rename selected layers, flatten them into images, and manage project Drive links — all in one place.
 
@@ -9,7 +9,7 @@ Rename selected layers, flatten them into images, and manage project Drive links
 | **Layer Renamer** | Batch renames the selection as `Page - Design Phase - Client - Version`, with a live preview and a full before/after review before anything changes. |
 | **Flatten & Merge** | Turns each selected layer into an image, or merges several into one. Originals are kept unless you choose to replace them. |
 | **Google Drive Links** | Lists the Google Drive / Docs hyperlinks on the file's **For Designers** page so you can open, copy, or add to them. |
-| **Check for updates** | Tells you when a newer version is in the GitHub repository and what changed. |
+| **Check for updates** | Tells you when a newer version is in the GitHub repository, and installs it inside Figma with **Update now**. |
 
 ---
 
@@ -86,7 +86,7 @@ Opens with a scan of the page named **For Designers** (the name match ignores ca
 
 The gear in the top right opens Settings from any screen; Back returns to where you were.
 
-- **Updates** — shows the installed version, with *Check for updates* and a link to the repository.
+- **Updates** — shows the installed version and whether it came from the plugin folder or from *Update now*, with *Check for updates*, a link to the repository, and *Go back to v…* after an update.
 - **Saved settings** — *Reset my settings* puts the naming format, formatting options and flatten resolution back to their defaults (after a confirmation). Client, Design Phase and Version stored inside a file stay with that file.
 
 ### Check for updates
@@ -95,34 +95,55 @@ The gear in the top right opens Settings from any screen; Back returns to where 
 `github.com/hiteshramawat01-oss/UtilityKit` and compares it with the version you are running.
 
 - Up to date → a short confirmation.
-- Newer version → a card with the version, release date and what changed, plus **Download update** and **View on GitHub**.
-- It only runs when you press the button. Nothing about your file is sent; the plugin just downloads one small text file.
+- Newer version → a card with the version, release date and what changed, and an **Update now** button.
+- It only runs when you press the button. Nothing about your file is sent.
 
-**The plugin cannot install the update itself.** Figma gives plugins no access to files on your computer, including their own. Installing is one step outside Figma — pick whichever fits how you installed it:
+#### Update now — installing inside Figma
 
-| You installed by… | To update |
+**Update now** downloads the new `code.js` and `ui.html` from the repository, and the plugin restarts into the new version a few seconds later. There are no files to replace and nothing to re-import.
+
+How that works, since Figma never lets a plugin change the files in its own folder: the new version is saved in Figma's plugin storage on your computer, and a small loader at the top of `code.js` runs that saved copy whenever it is newer than the files in the folder. So after an update:
+
+- The plugin folder still holds the older files; the saved copy is what runs. **Settings** shows which one is running and has **Go back to v…** to drop the saved copy.
+- The update is per person and per computer (plugin storage is not shared), so each designer presses **Update now** once.
+- If you later replace the folder with the same or a newer version, the saved copy is discarded automatically.
+
+Safety nets:
+
+- The download addresses are fixed in the code. Nothing in `version.json` can point the plugin at another site.
+- Both downloaded files must carry the same version number as `version.json`, and the code must parse, before anything is saved. A half-published release is refused with "try again in a few minutes".
+- A saved update is only trusted once its interface has loaded. If one ever fails to start, the next launch throws it away and runs the folder's copy.
+- Installing never touches your Figma file or your saved naming settings.
+
+**What you are trusting.** With Update now, the plugin runs code downloaded from that GitHub repository. Anyone who can push to the repository can therefore change what the plugin does for everyone who updates. Keep push access to people you trust and protect the account with two-factor sign-in. (If you publish the plugin through Figma Community later, remove this feature first: Figma's review does not allow plugins that load their code from elsewhere.)
+
+**One-time step for copies older than v1.3.0.** Those versions have no loader, so they cannot update themselves. Replace their folder's files once (run `update.command` / `update.bat`, pull the repo, or download the ZIP and copy it over). From v1.3.0 on, Update now does the rest.
+
+Other ways to update still work, and they also update the folder itself:
+
+| You installed by… | To update the folder |
 |---|---|
 | Cloning the repo (GitHub Desktop or `git clone`) | Press **Pull origin** in GitHub Desktop, or double-click the update script. |
 | Downloading a ZIP | **Mac:** double-click `update.command` in the plugin folder — it downloads the latest files and copies them over the old ones (nothing is deleted). **Windows:** double-click `update.bat` — it opens the download; unzip it over the plugin folder. |
 
-Then run UtilityKit again. Figma reads the plugin files fresh on every run, so there is nothing to re-import.
-
-First run of `update.command` on a Mac: macOS may block a downloaded script. Right-click it → **Open** once. If it says you don't have permission, the file lost its "executable" flag (this happens when files are added through GitHub's web upload page); run `bash update.command` in Terminal, or `chmod +x update.command` once.
+First run of `update.command` on a Mac: macOS may block a downloaded script. Right-click it → **Open** once, or run `bash update.command` in Terminal.
 
 Requirements and limits:
 
-- **The repository must be public** for the check and the ZIP download to work. With a private repository the check reports that no version information was found. (A private repo would need an access token inside the plugin, where anyone with the files could read it.)
-- GitHub caches the file for a few minutes, so a release can take up to about five minutes to show.
-- `version.json` is treated as untrusted: the version must be a real version number, and the plugin only ever opens links inside the UtilityKit repository, whatever the file says.
+- **The repository must be public.** A private repo would need an access token inside the plugin, where anyone with the files could read it.
+- GitHub caches files for a few minutes, so a release can take up to about five minutes to show.
+- If a Figma version ever stops plugins from running downloaded code, the card falls back to **Download update** and the scripts above.
 
 #### Releasing a new version (maintainers)
 
 1. Make your changes in `src/`.
-2. Edit `version.json`: raise `version` (for example `1.1.0` → `1.2.0`), set `released`, and list what changed in `notes`.
-3. Run `node build.js` — it stamps that version into `code.js` — then `npm test`.
-4. Commit and push everything to `main` (or upload the files through GitHub). `manifest.json`, `code.js`, `ui.html` and `version.json` must sit at the top level of the repository.
+2. Edit `version.json`: raise `version` (for example `1.3.0` → `1.3.1`), set `released`, and list what changed in `notes`.
+3. Run `node build.js` — it stamps that version into `code.js` and `ui.html` — then `npm test`.
+4. Commit and push **`code.js`, `ui.html` and `version.json` together** to `main`. They must sit at the top level of the repository and carry the same version, or Update now will refuse the release.
 
 Everyone who presses **Check for updates** will then see the new version.
+
+The loader (`src/plugin/05-loader.js`) is the one part Update now cannot replace: it only changes when the folder's files change. Keep it small and keep its functions (`start`, `confirm`, `save`, `clear`, `restart`, `info`, `canRun`) working the same way.
 
 ---
 
@@ -133,7 +154,7 @@ Everyone who presses **Check for updates** will then see the new version.
 - Every change is one undo step and ends with a clear success or error message.
 - Temporary layers used for rendering are removed even when something fails.
 - Only validated Google Drive / Docs URLs, and links inside the UtilityKit repository, are ever opened.
-- The only network request the plugin can make is reading `version.json` from GitHub, and only when you press *Check for updates*.
+- The only site the plugin can reach is GitHub's file host, to read `version.json` and (when you press *Update now*) the plugin's own `code.js` and `ui.html`. It only does so when you press the button.
 
 ---
 
@@ -148,11 +169,12 @@ ui.html              Interface    — BUILT from src/ui (one self-contained file
 
 src/plugin/
   00-core.js         shared helpers
+  05-loader.js       start-up: runs a saved update if it is newer than the folder's files
   10-naming.js       naming rules (pure functions, no Figma API)
   20-renamer.js      Layer Renamer: preview, apply, resize
   30-flatten.js      Flatten & Merge: render, tile, place, replace
   40-drive.js        Google Drive Links: scan, add, open
-  50-updates.js      Check for updates: fetch, compare, validate
+  50-updates.js      Check for updates and Update now: fetch, compare, validate, install
   90-main.js         message router, saved settings, start-up
 src/ui/
   ui.html  ui.css  ui.js
@@ -169,20 +191,20 @@ Requires Node 18+ (no packages to install).
 
 ```bash
 node build.js          # rebuild code.js and ui.html after editing src/
-npm test               # build + 50 unit tests
-python3 test/e2e.py    # optional: drives the real UI in a headless browser (needs Playwright)
+npm test               # build + 60 unit tests
+python3 test/e2e.py    # optional: drives the real plugin in a headless browser (needs Playwright)
 ```
 
-`test/harness.html` runs the real `ui.html` against the real `code.js` on top of a mock Figma API. Open it in a browser to click through the interface without Figma.
+`test/harness.html` runs the real `ui.html` and `code.js`, start-up included, on top of a mock Figma API. Serve the project folder over http (for example `python3 -m http.server`) and open `/test/harness.html` to click through the interface without Figma.
 
 To add a utility: add a module in `src/plugin`, register its requests in `90-main.js`, add a screen in `src/ui/ui.html`, and replace the "Coming soon" card on Home.
 
 ## How it was tested
 
-- **50 unit tests** cover the naming rules, preview/apply, stale previews, failures, resizing, saved settings, flatten/merge/tiling/replace, export failures, Drive link scanning/adding/URL validation, and the update check (version comparison, bad or hostile `version.json`, offline, private repo).
+- **60 unit tests** cover the naming rules, preview/apply, stale previews, failures, resizing, saved settings, flatten/merge/tiling/replace, export failures, Drive link scanning/adding/URL validation, the update check (version comparison, bad or hostile `version.json`, offline, private repo), and Update now (install, restart, relaunch, going back, half-published or broken releases, and the fall-back when an update fails to start).
 - `update.command` was run on every path (ZIP download, git pull, failed download, wrong download, wrong folder). `update.bat` has not been run on Windows.
 - **An end-to-end run** drives the real interface against the real plugin logic through every screen, including the narrow-window and dark-theme layouts.
-- Both run against a **simulated Figma API**. The plugin has not yet been exercised inside the Figma app itself, so do a first run on a scratch file. The places most likely to behave differently in real Figma are *Replace originals* inside auto-layout or component instances, and *Merge* across layers nested in rotated parents.
+- Both run against a **simulated Figma API**. In the Figma app itself, the plugin and *Check for updates* have been run; **Update now has not been run there yet**, so try the first one on a scratch file. It relies on Figma's plugin sandbox being able to run downloaded code, which other plugins depend on today; if that fails, the card falls back to *Download update*. Elsewhere, the places most likely to behave differently in real Figma are *Replace originals* inside auto-layout or component instances, and *Merge* across layers nested in rotated parents.
 
 ## Publishing
 

@@ -12,6 +12,6 @@
     "allowedDomains": [
       "https://raw.githubusercontent.com"
     ],
-    "reasoning": "Only used by “Check for updates” to read version.json from the UtilityKit GitHub repository. No design or file data is sent."
+    "reasoning": "Only used by “Check for updates” and “Update now” to read version.json, code.js and ui.html from the UtilityKit GitHub repository. No design or file data is sent."
   }
 }

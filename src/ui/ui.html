@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="utilitykit-version" content="__UK_VERSION__">
 <title>UtilityKit</title>
 <style>/*__CSS__*/</style>
 </head>
@@ -182,11 +183,13 @@
       <div class="scroll">
         <div class="card">
           <div class="card-head"><h2>Updates</h2><span class="hint" id="stVersion"></span></div>
-          <p class="card-text">Checks the UtilityKit repository on GitHub for a newer version. It only runs when you press the button.</p>
+          <p class="card-text">Checks the UtilityKit repository on GitHub for a newer version and can install it here. It only runs when you press the button.</p>
+          <p class="card-text" id="stSource" hidden></p>
           <div class="quick">
             <button class="btn small" type="button" id="stCheck">Check for updates</button>
             <button class="btn small" type="button" id="stRepo"><i data-icon="open"></i>View on GitHub</button>
           </div>
+          <button class="btn small" type="button" id="stRemove" hidden></button>
           <div id="stUpdBox" hidden></div>
         </div>
 

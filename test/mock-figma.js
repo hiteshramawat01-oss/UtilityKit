@@ -228,10 +228,12 @@
       },
       clientStorage: {
         getAsync: function (k) { return Promise.resolve(storage[k] === undefined ? undefined : JSON.parse(storage[k])); },
-        setAsync: function (k, v) { storage[k] = JSON.stringify(v); return Promise.resolve(); }
+        setAsync: function (k, v) { storage[k] = JSON.stringify(v); return Promise.resolve(); },
+        deleteAsync: function (k) { delete storage[k]; return Promise.resolve(); }
       },
-      showUI: function () {},
+      showUI: function (html, options) { (log.ui = log.ui || []).push({ html: html, options: options }); if (figma._showUI) figma._showUI(html, options); },
       on: function (evt, fn) { (listeners[evt] = listeners[evt] || []).push(fn); },
+      off: function (evt, fn) { listeners[evt] = (listeners[evt] || []).filter(function (f) { return f !== fn; }); },
       notify: function (message, opts) { log.notifications.push({ message: message, error: !!(opts && opts.error) }); },
       commitUndo: function () { log.undo++; },
       closePlugin: function () { log.closed = true; },
@@ -286,6 +288,7 @@
       figma: figma,
       log: log,
       storage: storage,
+      listeners: listeners,
       make: make,
       byId: byId,
       /** Adds a node to a parent (default: current page). */

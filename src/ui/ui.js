@@ -109,7 +109,10 @@
     applied: null,
     previewNotice: '',
     drive: null,
-    driveBusy: false
+    driveBusy: false,
+    version: '',
+    install: null,           // which copy is running: the plugin folder's, or a downloaded update
+    installing: false
   };
 
   var TITLES = { renamer: 'Layer Renamer', preview: 'Rename Preview', flatten: 'Flatten & Merge', drive: 'Google Drive Links', settings: 'Settings' };
@@ -746,16 +749,77 @@
     clear(box);
     var u = state.update;
     if (!u || !u.updateAvailable || state.updateDismissed) { box.hidden = true; return; }
-    var extra = h('div', { class: 'note-body' },
-      h('p', null, 'You have v' + u.current + '.' + (u.released ? ' Released ' + u.released + '.' : '')),
-      u.notes.length ? h('ul', null, u.notes.map(function (n) { return h('li', null, n); })) : null,
-      h('p', null, 'Figma plugins can\u2019t replace their own files, so install it outside Figma: run the update script in the plugin folder (or pull the repository), then run UtilityKit again.'),
-      h('div', { class: 'note-btns' },
-        h('button', { class: 'btn small primary', type: 'button', onclick: function () { openUpdate('download', u.downloadUrl); } }, 'Download update'),
-        h('button', { class: 'btn small', type: 'button', onclick: function () { openUpdate('page', u.pageUrl); } }, 'View on GitHub'),
-        h('button', { class: 'btn small', type: 'button', onclick: function () { state.updateDismissed = true; renderUpdate(); } }, 'Later')));
+    var later = h('button', { class: 'btn small', type: 'button', disabled: state.installing, onclick: function () { state.updateDismissed = true; renderUpdate(); } }, 'Later');
+    var extra;
+    if (u.canSelfUpdate) {
+      // This Figma can switch to the new version in place.
+      extra = h('div', { class: 'note-body' },
+        h('p', null, 'You have v' + u.current + '.' + (u.released ? ' Released ' + u.released + '.' : '')),
+        u.notes.length ? h('ul', null, u.notes.map(function (n) { return h('li', null, n); })) : null,
+        h('p', null, 'Installs here in a few seconds. Your files and saved settings are not touched.'),
+        h('div', { class: 'note-btns' },
+          h('button', { class: 'btn small primary' + (state.installing ? ' busy' : ''), type: 'button', disabled: state.installing, 'data-act': 'install', onclick: installUpdate },
+            state.installing ? 'Updating…' : 'Update now'),
+          later),
+        h('button', { class: 'linkish', type: 'button', 'data-act': 'download', onclick: function () { openUpdate('download', u.downloadUrl); } }, 'Get the files instead'));
+    } else {
+      extra = h('div', { class: 'note-body' },
+        h('p', null, 'You have v' + u.current + '.' + (u.released ? ' Released ' + u.released + '.' : '')),
+        u.notes.length ? h('ul', null, u.notes.map(function (n) { return h('li', null, n); })) : null,
+        h('p', null, 'It can’t be installed from inside Figma here. Run the update script in the plugin folder (or pull the repository), then run UtilityKit again.'),
+        h('div', { class: 'note-btns' },
+          h('button', { class: 'btn small primary', type: 'button', 'data-act': 'download', onclick: function () { openUpdate('download', u.downloadUrl); } }, 'Download update'),
+          h('button', { class: 'btn small', type: 'button', onclick: function () { openUpdate('page', u.pageUrl); } }, 'View on GitHub'),
+          later));
+    }
     box.appendChild(note('info', 'Version ' + u.latest + ' is available', [], extra));
     box.hidden = false;
+  }
+
+  /** Downloads the new version into Figma's plugin storage, then restarts into it. */
+  function installUpdate() {
+    if (state.installing) return;
+    state.installing = true;
+    renderUpdate();
+    call('update.install').then(function (res) {
+      if (!res.installed) {
+        state.installing = false;
+        state.update = null;
+        renderUpdate();
+        toast('You’re already up to date (v' + res.current + ').');
+        return;
+      }
+      toast('Updated to v' + res.version + ' — restarting…');
+      // The plugin now replaces this whole interface with the new version's.
+      call('update.restart').catch(function (err) { state.installing = false; renderUpdate(); fail(err); });
+    }).catch(function (err) {
+      state.installing = false;
+      if (err.code === 'UNSUPPORTED' && state.update) state.update.canSelfUpdate = false;
+      renderUpdate();
+      fail(err);
+    });
+  }
+
+  /** Drops the downloaded update and goes back to the copy in the plugin folder. */
+  function removeUpdate() {
+    var btn = $('stRemove');
+    btn.disabled = true;
+    call('update.remove').then(function () {
+      toast('Going back to v' + state.install.bundledVersion + '…');
+      return call('update.restart');
+    }).catch(function (err) { btn.disabled = false; fail(err); });
+  }
+
+  function renderInstall() {
+    var inst = state.install || { source: 'bundled' };
+    var downloaded = inst.source === 'downloaded';
+    $('stVersion').textContent = 'Installed: v' + state.version;
+    $('stSource').hidden = !downloaded;
+    $('stRemove').hidden = !downloaded;
+    if (downloaded) {
+      $('stSource').textContent = 'This version was installed with Update now. The plugin folder still holds v' + inst.bundledVersion + '.';
+      $('stRemove').textContent = 'Go back to v' + inst.bundledVersion;
+    }
   }
 
   // ── Settings ────────────────────────────────────────────────────────────
@@ -789,6 +853,7 @@
     $('stReset').addEventListener('click', function () { $('stReset').hidden = true; $('stResetConfirm').hidden = false; });
     $('stResetCancel').addEventListener('click', function () { $('stResetConfirm').hidden = true; $('stReset').hidden = false; });
     $('stResetYes').addEventListener('click', resetSettings);
+    $('stRemove').addEventListener('click', removeUpdate);
     var tools = document.querySelectorAll('[data-go]');
     for (var i = 0; i < tools.length; i++) {
       tools[i].addEventListener('click', function (e) { go(e.currentTarget.getAttribute('data-go')); });
@@ -878,11 +943,14 @@
       state.fields = data.fields || state.fields;
       state.selection = data.selection;
       $('version').textContent = 'v' + data.version;
-      $('stVersion').textContent = 'Installed: v' + data.version;
+      state.version = data.version;
+      state.install = data.install || null;
+      renderInstall();
       $('rnResizeW').textContent = data.resizeWidth;
       renderSelection();
       renderFields();
       renderRenamerOptions();
+      if (state.install && state.install.note) toast(state.install.note, true);
     }).catch(fail);
   }
 

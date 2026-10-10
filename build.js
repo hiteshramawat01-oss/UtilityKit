@@ -33,7 +33,8 @@ const js = read('src/ui/ui.js');
 if (/<\/script/i.test(js)) throw new Error('ui.js must not contain a closing script tag');
 const html = read('src/ui/ui.html')
   .replace('/*__CSS__*/', () => css)
-  .replace('/*__JS__*/', () => js);
+  .replace('/*__JS__*/', () => js)
+  .split('__UK_VERSION__').join(release.version);
 fs.writeFileSync(path.join(root, 'ui.html'), html);
 
 console.log(`version  ${release.version}`);

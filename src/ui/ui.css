@@ -98,6 +98,7 @@ i[data-icon] { display: inline-flex; width: 16px; height: 16px; flex: none; }
 .note-btns { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
 .note .note-btns .btn { margin-top: 0; }
 .note .btn.primary { color: var(--on-accent); }
+.note-body > .linkish { align-self: flex-start; font-size: 11px; }
 .card-text { color: var(--muted); line-height: 1.45; }
 .card > .btn.small { align-self: flex-start; }
 #stUpdBox .note-body p { color: var(--text); opacity: .85; }
