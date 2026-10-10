@@ -24,7 +24,7 @@ def run():
         ev = page.evaluate
 
         # ── Home ──
-        expect(ui.locator("#version")).to_have_text("v1.1.0")
+        expect(ui.locator("#version")).to_have_text("v1.1.1")
         expect(ui.locator("#selText")).to_have_text("0 selected")
         shot("01-home")
 
@@ -36,16 +36,16 @@ def run():
         ev("window.__versionJson = 'offline'")
         ui.locator("#updCheck").click()
         expect(ui.locator("#toast")).to_contain_text("Couldn’t reach GitHub")
-        ev("window.__versionJson = JSON.stringify({ version: '1.1.0' })")
+        ev("window.__versionJson = JSON.stringify({ version: UK.VERSION })")
         ui.locator("#updCheck").click()
-        expect(ui.locator("#toast")).to_have_text("You’re up to date (v1.1.0).")
+        expect(ui.locator("#toast")).to_have_text("You’re up to date (v1.1.1).")
         expect(ui.locator("#updBox")).to_be_hidden()
         ev("""window.__versionJson = JSON.stringify({ version: '1.2.0', released: '2026-11-02',
               notes: ['New: Export presets.', 'Fix: renaming inside instances.'],
               download: 'https://evil.example.com/malware.zip' })""")
         ui.locator("#updCheck").click()
         expect(ui.locator("#updBox")).to_contain_text("Version 1.2.0 is available")
-        expect(ui.locator("#updBox")).to_contain_text("You have v1.1.0. Released 2026-11-02.")
+        expect(ui.locator("#updBox")).to_contain_text("You have v1.1.1. Released 2026-11-02.")
         expect(ui.locator("#updBox li")).to_have_count(2)
         expect(ui.locator("#updCheck")).to_have_text("Check for updates")
         shot("01b-home-update")

@@ -8,7 +8,7 @@
  * Syntax is kept conservative on purpose (no optional chaining, no object
  * spread) because Figma's sandbox is stricter than a browser.
  */
-var UK = { VERSION: '1.1.0' };   // filled in from version.json by build.js
+var UK = { VERSION: '1.1.1' };   // filled in from version.json by build.js
 
 /** An error whose message is safe and useful to show to the designer. */
 UK.userError = function (message, code) {
@@ -1133,7 +1133,7 @@ UK.drive = (function () {
       text.fontSize = 14;
       text.characters = label;
       text.name = label;
-      text.fills = [{ type: 'SOLID', color: { r: 0.42, g: 0.27, b: 0.9 } }];
+      text.fills = [{ type: 'SOLID', color: { r: 9 / 255, g: 80 / 255, b: 135 / 255 } }];
       text.textDecoration = 'UNDERLINE';
       text.setRangeHyperlink(0, label.length, { type: 'URL', value: parsed.url });
       container.appendChild(text);

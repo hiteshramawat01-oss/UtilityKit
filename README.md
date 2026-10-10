@@ -1,6 +1,6 @@
 # UtilityKit
 
-**by CT Designers** · a Figma plugin · v1.1.0
+**by CT Designers** · a Figma plugin · v1.1.1
 
 Rename selected layers, flatten them into images, and manage project Drive links — all in one place.
 
