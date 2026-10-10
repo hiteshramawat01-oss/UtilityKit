@@ -1,6 +1,6 @@
 # UtilityKit
 
-A Figma plugin · v1.3.0
+A Figma plugin · v1.3.1
 
 Rename selected layers, flatten them into images, and manage project Drive links — all in one place.
 

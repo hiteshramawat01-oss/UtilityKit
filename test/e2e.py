@@ -43,7 +43,7 @@ def run():
         ev = page.evaluate
 
         # ── Home ──
-        expect(ui.locator("#version")).to_have_text("v1.3.0")
+        expect(ui.locator("#version")).to_have_text("v1.3.1")
         expect(ui.locator("#selText")).to_have_text("0 selected")
         shot("01-home")
 
@@ -57,14 +57,14 @@ def run():
         expect(ui.locator("#toast")).to_contain_text("Couldn’t reach GitHub")
         ev("window.__versionJson = JSON.stringify({ version: UK.VERSION })")
         ui.locator("#updCheck").click()
-        expect(ui.locator("#toast")).to_have_text("You’re up to date (v1.3.0).")
+        expect(ui.locator("#toast")).to_have_text("You’re up to date (v1.3.1).")
         expect(ui.locator("#updBox")).to_be_hidden()
         ev("""window.__versionJson = JSON.stringify({ version: '9.9.0', released: '2026-11-02',
               notes: ['New: Export presets.', 'Fix: renaming inside instances.'],
               download: 'https://evil.example.com/malware.zip' })""")
         ui.locator("#updCheck").click()
         expect(ui.locator("#updBox")).to_contain_text("Version 9.9.0 is available")
-        expect(ui.locator("#updBox")).to_contain_text("You have v1.3.0. Released 2026-11-02.")
+        expect(ui.locator("#updBox")).to_contain_text("You have v1.3.1. Released 2026-11-02.")
         expect(ui.locator("#updBox li")).to_have_count(2)
         expect(ui.locator("#updCheck")).to_have_text("Check for updates")
         expect(ui.locator('#updBox [data-act="install"]')).to_have_text("Update now")
@@ -82,7 +82,7 @@ def run():
         ui.locator("#openSettings").click()
         expect(ui.locator("#title")).to_have_text("Settings")
         expect(ui.locator("#openSettings")).to_be_hidden()
-        expect(ui.locator("#stVersion")).to_have_text("Installed: v1.3.0")
+        expect(ui.locator("#stVersion")).to_have_text("Installed: v1.3.1")
         expect(ui.locator("#stRemove")).to_be_hidden()
         expect(ui.locator("#stUpdBox")).to_be_hidden()               # "Later" was pressed on Home
         ev("window.__versionJson = JSON.stringify({ version: '3.0.0', notes: ['New: something.'] })")
@@ -287,7 +287,7 @@ def run():
         expect(ui.locator("#toast")).to_contain_text("still being published")
         expect(ui.locator('#updBox [data-act="install"]')).to_have_text("Update now")
         assert saved() is None
-        expect(ui.locator("#version")).to_have_text("v1.3.0")
+        expect(ui.locator("#version")).to_have_text("v1.3.1")
 
         # the real thing
         ev(load_release, release("9.9.0", "UPDATED BUILD 9.9.0"))
@@ -314,13 +314,13 @@ def run():
         expect(ui.locator("#version")).to_have_text("v9.9.0")
         ui.locator("#openSettings").click()
         expect(ui.locator("#stVersion")).to_have_text("Installed: v9.9.0")
-        expect(ui.locator("#stSource")).to_contain_text("The plugin folder still holds v1.3.0")
-        expect(ui.locator("#stRemove")).to_have_text("Go back to v1.3.0")
+        expect(ui.locator("#stSource")).to_contain_text("The plugin folder still holds v1.3.1")
+        expect(ui.locator("#stRemove")).to_have_text("Go back to v1.3.1")
         shot("16-settings-updated")
 
         # going back
         ui.locator("#stRemove").click()
-        expect(ui.locator("#version")).to_have_text("v1.3.0")
+        expect(ui.locator("#version")).to_have_text("v1.3.1")
         expect(ui.locator(".lede")).to_have_text("Everyday design utilities in one place.")
         page.wait_for_function("env.storage['%s'] === undefined" % KEY)
 
@@ -331,7 +331,7 @@ def run():
         page.wait_for_function("JSON.parse(env.storage['%s']).pending === false" % KEY)
         ev("(() => { const s = JSON.parse(env.storage['%s']); s.pending = true; env.storage['%s'] = JSON.stringify(s); })()" % (KEY, KEY))
         ev("launch()")
-        expect(ui.locator("#version")).to_have_text("v1.3.0")
+        expect(ui.locator("#version")).to_have_text("v1.3.1")
         expect(ui.locator("#toast")).to_contain_text("Update 9.9.0 didn’t start properly")
         assert saved() is None
 
