@@ -2,210 +2,185 @@
 
 A Figma plugin · v1.3.1
 
-Rename selected layers, flatten them into images, and manage project Drive links — all in one place.
+Three everyday helpers in one small window:
 
-| Utility | What it does |
-|---|---|
-| **Layer Renamer** | Batch renames the selection as `Page - Design Phase - Client - Version`, with a live preview and a full before/after review before anything changes. |
-| **Flatten & Merge** | Turns each selected layer into an image, or merges several into one. Originals are kept unless you choose to replace them. |
-| **Google Drive Links** | Lists the Google Drive / Docs hyperlinks on the file's **For Designers** page so you can open, copy, or add to them. |
-| **Check for updates** | Tells you when a newer version is in the GitHub repository, and installs it inside Figma with **Update now**. |
+- **Layer Renamer** — rename many layers at once in a tidy, consistent format.
+- **Flatten & Merge** — turn selected layers into an image.
+- **Google Drive Links** — find the project's Drive links in one click.
 
 ---
 
-## Install (about a minute, no build step)
+## Install
 
-1. Unzip this folder somewhere permanent, for example `Documents/Figma Plugins/utilitykit`.
-2. Open the **Figma desktop app** and open any design file.
-3. Menu → **Plugins → Development → Import plugin from manifest…**
-4. Choose `manifest.json` from this folder.
-5. Run it from **Plugins → Development → UtilityKit**.
+It takes about a minute.
 
-`code.js` and `ui.html` are already built, so there is nothing to install or compile. Figma reads the files from this folder each time the plugin runs — keep the folder where it is.
+1. On the GitHub page, click **Code → Download ZIP**, then unzip it.
+2. Move the unzipped folder somewhere it can stay, such as your Documents folder. Figma reads the plugin from this folder every time, so don't move or delete it later.
+3. Open the **Figma desktop app** and open any design file. (This does not work in the browser version of Figma.)
+4. In the menu, go to **Plugins → Development → Import plugin from manifest…**
+5. Pick the file called `manifest.json` inside the folder.
 
-> Development plugins only run in the desktop app. To give the whole team one-click access, publish it privately to your organization (see *Publishing* below).
+To open the plugin: **Plugins → Development → UtilityKit**.
+
+Each person installs it once on their own computer.
 
 ---
 
-## Using it
+## Layer Renamer
 
-### Layer Renamer
+Renames layers like this: `Home - Design - Acme - V1`
 
-1. Select the layers or frames to rename.
-2. Fill in the fields. Each one has a switch; **switched-off and empty fields are left out**, with no stray separators.
-   - **Page** uses each layer's own name by default (so 20 frames keep 20 different page names). Switch it to *Custom text* to give them all the same page.
-   - **Design Phase**, **Client**, **Version** are typed once and applied to every layer.
-   - The arrows reorder the fields.
-3. Watch the **Live preview** update as you type, then press **Preview**.
-4. The **Rename Preview** screen shows *Selected / Will rename / Unchanged* and every current → new name. Press **Apply**.
+1. Select the layers or frames you want to rename.
+2. Fill in the boxes:
+   - **Page** — uses each layer's current name. Choose *Custom text* if every layer should get the same page name.
+   - **Design Phase**, **Client**, **Version** — type these once; they are added to every layer.
+3. The **Live preview** shows the new name as you type.
+4. Press **Preview** to see every old name next to its new name.
+5. Press **Apply**.
 
-Formatting, applied to every name:
+Good to know:
 
-| Rule | Example |
-|---|---|
-| Removes a leading `YYYY-MM` date (and an optional `-DD`) plus its separator | `2026-05 - home page` → `Home Page` |
-| Capitalizes each word, without flattening acronyms | `landing page CTA` → `Landing Page CTA` |
-| Tidies spacing, underscores and stray edge punctuation | `  home_page  - ` → `Home Page` |
-| Writes versions consistently | `1`, `v1`, `version 1` → `V1` |
+- Nothing changes until you press **Apply**. To undo, press ⌘Z (Mac) or Ctrl+Z (Windows).
+- Leave a box empty, or switch it off, and that part is simply left out of the name.
+- Use the small arrows to change the order of the parts.
+- You can run it again on the same layers. The parts are not added twice. Change the version from 1 to 2 and `V1` becomes `V2`.
 
-**Advanced:** separator (` - `, ` | `, ` / `, `_`), version prefix on/off, numbering for identical names (`… - 01`, `… - 02`), and **Resize layers to 1600 px wide**:
+It also cleans names up for you:
 
-- *Scale proportionally* — keeps the aspect ratio; contents scale with the layer (Figma's Scale tool).
-- *Width only* — sets the width to 1600 and leaves the height as it is; auto-layout frames re-hug their content.
+| What it does | Before | After |
+|---|---|---|
+| Removes a date at the start | `2026-05 - home page` | `Home Page` |
+| Capitalizes each word | `landing page` | `Landing Page` |
+| Fixes extra spaces and underscores | `home_page  ` | `Home Page` |
+| Writes versions the same way | `1`, `v1`, `version 1` | `V1` |
 
-Things worth knowing:
+Under **Advanced** you can also:
 
-- **Nothing is renamed until you press Apply**, and Apply is a single undo step (⌘Z / Ctrl+Z).
-- **Re-running is safe.** A layer already named `Home - Design - Acme - V1` is recognised, not turned into `Home - Design - Acme - V1 - Design - Acme - V1`. Bump the version to `2` and it becomes `… - V2`. This works for layers UtilityKit renamed, and for layers that already follow the current format by hand.
-- If layers are deleted or renamed between Preview and Apply, nothing is applied and you get a refreshed preview instead.
-- **Saved settings.** Your format choices are remembered on your machine. *Client, Design Phase and Version* are also remembered **inside the file** when you apply (as invisible plugin data), so each project file reopens with its own client — for you and for teammates.
+- Change the divider between parts (` - `, ` | `, ` / ` or `_`).
+- Add numbers when several layers end up with the same name (`01`, `02`…).
+- **Resize layers to 1600 px wide.** *Scale proportionally* keeps the shape and scales everything inside. *Width only* changes just the width.
 
-### Flatten & Merge
+The plugin remembers your choices for next time. It also remembers the Client, Design Phase and Version for each Figma file, so every project opens with its own client name.
+
+---
+
+## Flatten & Merge
+
+Turns layers into a picture (PNG).
 
 1. Select one or more layers.
-2. Pick a resolution (1×–4×).
-3. **Flatten each** makes one image per layer. **Merge into one** makes a single image of everything selected.
+2. Choose the quality: **1×** is normal size, **2×** is sharper, up to **4×**.
+3. Press one of the buttons:
+   - **Flatten each** — one image for every layer.
+   - **Merge into one** — a single image of everything you selected.
 
-- **Originals are kept by default.** The image is placed to the right of the artboard(s) the selection sits in, and selected.
-- **Replace originals** is opt-in and asks for confirmation every time. The image is created first and put in the originals' place and stacking position; only then are the originals removed. If the export fails, nothing is removed.
-- Rendering uses Figma's own PNG export, so effects such as shadows are included.
-- **Large output is never silently downscaled.** Figma rejects image fills above 4096 px on a side. When the output would exceed that (say a 1600 × 9000 page at 2×), UtilityKit produces seamless tiles in one group at full quality, and says so before you run it.
-- A layer is rendered as it looks on its own: what is behind it, and a parent's clipping, mask or opacity, are not baked in. Hidden layers, empty layers and slices are skipped and listed.
+Good to know:
 
-### Google Drive Links
+- **Your original layers are kept.** The image appears to the right of your artboard.
+- If you choose **Replace originals**, the plugin asks you to confirm first. The image is made before anything is removed, so if something goes wrong your layers stay as they were.
+- Shadows and other effects are included in the image.
+- Figma cannot hold one image larger than 4096 px on a side. For anything bigger, such as a long page, the plugin makes several pieces that fit together exactly and groups them. Nothing is shrunk or blurred.
+- Hidden and empty layers are skipped. The plugin tells you which ones.
+- To undo, press ⌘Z or Ctrl+Z.
 
-Opens with a scan of the page named **For Designers** (the name match ignores case and tolerates decoration such as `📎 For Designers`).
+---
 
-- Lists every `drive.google.com` and `docs.google.com` hyperlink on that page, in reading order (top to bottom, then left to right), labelled Folder / File / Doc / Sheet / Slides / Form. Pasted URLs that were never made into hyperlinks are listed too, tagged *Plain text*.
-- **Open first / Copy first**, per-link open, copy and *show on canvas*, and **Rescan**.
-- **Add a link**: give it a label and a URL. It is written to a "Drive Links" frame on the For Designers page as a real hyperlink. If the page does not exist, the button becomes **Create page & add link** — the page is never created without you asking.
+## Google Drive Links
 
-**What it cannot do — by design.** A Figma plugin can only read the Figma file. UtilityKit does not look inside Google Drive, cannot tell whether a link works or who has access, and never uploads, downloads or syncs files. The plugin's only network permission is the GitHub address used by *Check for updates*, so it cannot contact Google even if it wanted to. It manages links, not files.
+Looks at the page named **For Designers** in your Figma file and lists every Google Drive and Google Docs link on it.
 
-### Settings
+- **Open first** / **Copy first** — for the first link on the page.
+- Each link has its own buttons to open it, copy it, or show where it sits in the file.
+- **Rescan** — look again after you change the page.
+- **Add a link** — type a name and paste the link. It is added to the For Designers page.
+- No For Designers page yet? The plugin offers to create one. It never creates it without asking.
 
-The gear in the top right opens Settings from any screen; Back returns to where you were.
+What it does **not** do: it does not look inside Google Drive, it cannot tell whether a link still works or who can open it, and it never uploads or downloads files. It only works with links that are written in the Figma file.
 
-- **Updates** — shows the installed version and whether it came from the plugin folder or from *Update now*, with *Check for updates*, a link to the repository, and *Go back to v…* after an update.
-- **Saved settings** — *Reset my settings* puts the naming format, formatting options and flatten resolution back to their defaults (after a confirmation). Client, Design Phase and Version stored inside a file stay with that file.
+---
 
-### Check for updates
+## Settings
 
-**Home → Check for updates** (bottom right), or the same button in **Settings**, reads `version.json` from
-`github.com/hiteshramawat01-oss/UtilityKit` and compares it with the version you are running.
+Click the **gear** in the top right corner.
 
-- Up to date → a short confirmation.
-- Newer version → a card with the version, release date and what changed, and an **Update now** button.
-- It only runs when you press the button. Nothing about your file is sent.
+- **Updates** — shows your version and lets you check for a new one.
+- **Reset my settings** — puts the Layer Renamer and Flatten options back to how they were when you first installed. It asks before doing it.
 
-#### Update now — installing inside Figma
+---
 
-**Update now** downloads the new `code.js` and `ui.html` from the repository, and the plugin restarts into the new version a few seconds later. There are no files to replace and nothing to re-import.
+## Updating
 
-How that works, since Figma never lets a plugin change the files in its own folder: the new version is saved in Figma's plugin storage on your computer, and a small loader at the top of `code.js` runs that saved copy whenever it is newer than the files in the folder. So after an update:
+1. Press **Check for updates** (bottom of the Home screen, or in Settings).
+2. If there is a new version, press **Update now**.
+3. The plugin reloads by itself with the new version. That's it.
 
-- The plugin folder still holds the older files; the saved copy is what runs. **Settings** shows which one is running and has **Go back to v…** to drop the saved copy.
-- The update is per person and per computer (plugin storage is not shared), so each designer presses **Update now** once.
-- If you later replace the folder with the same or a newer version, the saved copy is discarded automatically.
+Good to know:
 
-Safety nets:
+- Each person updates on their own computer.
+- Updating does not change your Figma files or your saved settings.
+- A new version can take a few minutes to show up after it is published.
+- Changed your mind? **Settings → Go back to v…** returns to the version in your plugin folder.
+- If an update ever fails to start, the plugin goes back to the previous version by itself the next time you open it.
 
-- The download addresses are fixed in the code. Nothing in `version.json` can point the plugin at another site.
-- Both downloaded files must carry the same version number as `version.json`, and the code must parse, before anything is saved. A half-published release is refused with "try again in a few minutes".
-- A saved update is only trusted once its interface has loaded. If one ever fails to start, the next launch throws it away and runs the folder's copy.
-- Installing never touches your Figma file or your saved naming settings.
+**Have a version older than 1.3.0?** It can't update itself yet. Do this once: download the ZIP from GitHub again and copy the files over your old plugin folder. After that, **Update now** works.
 
-**What you are trusting.** With Update now, the plugin runs code downloaded from that GitHub repository. Anyone who can push to the repository can therefore change what the plugin does for everyone who updates. Keep push access to people you trust and protect the account with two-factor sign-in. (If you publish the plugin through Figma Community later, remove this feature first: Figma's review does not allow plugins that load their code from elsewhere.)
+**No "Update now" button, only "Download update"?** Your Figma won't let the plugin update itself. Download the ZIP and copy the files over your plugin folder instead. On a Mac you can also double-click `update.command` in the plugin folder (the first time, right-click it and choose **Open**). On Windows, double-click `update.bat`; it opens the download for you.
 
-**One-time step for copies older than v1.3.0.** Those versions have no loader, so they cannot update themselves. Replace their folder's files once (run `update.command` / `update.bat`, pull the repo, or download the ZIP and copy it over). From v1.3.0 on, Update now does the rest.
+---
 
-Other ways to update still work, and they also update the folder itself:
+## Privacy and safety
 
-| You installed by… | To update the folder |
+- The plugin only changes your file when you press a button such as Apply or Flatten, and every change can be undone.
+- Your original layers are never deleted unless you choose **Replace originals** and confirm.
+- The plugin goes online for one thing only: checking for and downloading its own updates from GitHub, and only when you press the button. Nothing about your designs is sent anywhere.
+- **Update now** installs whatever is on the plugin's GitHub page. Only people you trust should be able to change that page, and the GitHub account should have two-step sign-in turned on.
+
+---
+
+## Something not working?
+
+| Problem | What to try |
 |---|---|
-| Cloning the repo (GitHub Desktop or `git clone`) | Press **Pull origin** in GitHub Desktop, or double-click the update script. |
-| Downloading a ZIP | **Mac:** double-click `update.command` in the plugin folder — it downloads the latest files and copies them over the old ones (nothing is deleted). **Windows:** double-click `update.bat` — it opens the download; unzip it over the plugin folder. |
+| The plugin isn't in the menu | Use the Figma **desktop app**, then import `manifest.json` again. |
+| "Select layers" and the buttons are grey | Click one or more layers on the canvas first. |
+| Check for updates says "up to date" but a new version exists | Wait a few minutes and press it again. |
+| The plugin stopped opening after you moved a folder | Import `manifest.json` again from the folder's new place. |
+| No links found | Check that the page is named **For Designers** and that the links point to Google Drive or Google Docs. |
 
-First run of `update.command` on a Mac: macOS may block a downloaded script. Right-click it → **Open** once, or run `bash update.command` in Terminal.
+---
 
-Requirements and limits:
+## For people who edit the plugin
 
-- **The repository must be public.** A private repo would need an access token inside the plugin, where anyone with the files could read it.
-- GitHub caches files for a few minutes, so a release can take up to about five minutes to show.
-- If a Figma version ever stops plugins from running downloaded code, the card falls back to **Download update** and the scripts above.
+You only need this section if you want to change how the plugin works. You need [Node.js](https://nodejs.org) installed.
 
-#### Releasing a new version (maintainers)
+**What's in the folder**
+
+| File or folder | What it is |
+|---|---|
+| `manifest.json` | Tells Figma about the plugin. |
+| `code.js`, `ui.html` | The plugin itself. These are made automatically — don't edit them by hand. |
+| `src/` | The files you edit. `src/plugin` is how it works, `src/ui` is how it looks. |
+| `version.json` | The version number and the list of what's new. |
+| `test/` | Automatic checks. |
+| `update.command`, `update.bat` | Helpers that download the latest files into the folder. |
+
+**Publishing a new version**
 
 1. Make your changes in `src/`.
-2. Edit `version.json`: raise `version` (for example `1.3.0` → `1.3.1`), set `released`, and list what changed in `notes`.
-3. Run `node build.js` — it stamps that version into `code.js` and `ui.html` — then `npm test`.
-4. Commit and push **`code.js`, `ui.html` and `version.json` together** to `main`. They must sit at the top level of the repository and carry the same version, or Update now will refuse the release.
+2. Open `version.json`, raise the version number (for example `1.3.1` to `1.3.2`) and write what changed.
+3. In a terminal, in the plugin folder, run `node build.js`. This remakes `code.js` and `ui.html`.
+4. Run `npm test` to make sure nothing broke.
+5. Upload **everything** to GitHub. `code.js`, `ui.html` and `version.json` must go up together, or **Update now** will refuse the new version.
 
-Everyone who presses **Check for updates** will then see the new version.
+After a few minutes, everyone who presses **Check for updates** sees the new version.
 
-The loader (`src/plugin/05-loader.js`) is the one part Update now cannot replace: it only changes when the folder's files change. Keep it small and keep its functions (`start`, `confirm`, `save`, `clear`, `restart`, `info`, `canRun`) working the same way.
+**Two rules**
 
----
+- The GitHub page has to stay **public**, or the plugin can't see new versions.
+- Be careful with `src/plugin/05-loader.js`. It is the small part that starts the plugin and picks which version to run, and it is the one part **Update now** cannot replace.
 
-## Safety rules the code follows
+**Checks**
 
-- Reading (previews, summaries, scans) never changes the document.
-- Originals are never edited or deleted, except by *Replace originals* after an explicit confirmation — the plugin logic itself refuses a replace request that is not marked confirmed.
-- Every change is one undo step and ends with a clear success or error message.
-- Temporary layers used for rendering are removed even when something fails.
-- Only validated Google Drive / Docs URLs, and links inside the UtilityKit repository, are ever opened.
-- The only site the plugin can reach is GitHub's file host, to read `version.json` and (when you press *Update now*) the plugin's own `code.js` and `ui.html`. It only does so when you press the button.
-
----
-
-## Project layout
-
-```
-manifest.json        Figma manifest (network: GitHub raw files only; dynamic page loading)
-version.json         current version + release notes — the file "Check for updates" reads
-update.command       updater for macOS      update.bat   updater for Windows
-code.js              Plugin logic — BUILT from src/plugin
-ui.html              Interface    — BUILT from src/ui (one self-contained file)
-
-src/plugin/
-  00-core.js         shared helpers
-  05-loader.js       start-up: runs a saved update if it is newer than the folder's files
-  10-naming.js       naming rules (pure functions, no Figma API)
-  20-renamer.js      Layer Renamer: preview, apply, resize
-  30-flatten.js      Flatten & Merge: render, tile, place, replace
-  40-drive.js        Google Drive Links: scan, add, open
-  50-updates.js      Check for updates and Update now: fetch, compare, validate, install
-  90-main.js         message router, saved settings, start-up
-src/ui/
-  ui.html  ui.css  ui.js
-
-build.js             zero-dependency build script
-test/                unit tests, mock Figma API, browser harness, end-to-end script
-```
-
-The interface and the logic are separate programs: `ui.html` draws screens and sends requests such as `rename.preview`; `code.js` is the only side that touches the document, and answers every request with exactly one result. Each utility is its own module and can be tested on its own.
-
-## Changing it
-
-Requires Node 18+ (no packages to install).
-
-```bash
-node build.js          # rebuild code.js and ui.html after editing src/
-npm test               # build + 60 unit tests
-python3 test/e2e.py    # optional: drives the real plugin in a headless browser (needs Playwright)
-```
-
-`test/harness.html` runs the real `ui.html` and `code.js`, start-up included, on top of a mock Figma API. Serve the project folder over http (for example `python3 -m http.server`) and open `/test/harness.html` to click through the interface without Figma.
-
-To add a utility: add a module in `src/plugin`, register its requests in `90-main.js`, add a screen in `src/ui/ui.html`, and replace the "Coming soon" card on Home.
-
-## How it was tested
-
-- **60 unit tests** cover the naming rules, preview/apply, stale previews, failures, resizing, saved settings, flatten/merge/tiling/replace, export failures, Drive link scanning/adding/URL validation, the update check (version comparison, bad or hostile `version.json`, offline, private repo), and Update now (install, restart, relaunch, going back, half-published or broken releases, and the fall-back when an update fails to start).
-- `update.command` was run on every path (ZIP download, git pull, failed download, wrong download, wrong folder). `update.bat` has not been run on Windows.
-- **An end-to-end run** drives the real interface against the real plugin logic through every screen, including the narrow-window and dark-theme layouts.
-- Both run against a **simulated Figma API**. In the Figma app itself, the plugin and *Check for updates* have been run; **Update now has not been run there yet**, so try the first one on a scratch file. It relies on Figma's plugin sandbox being able to run downloaded code, which other plugins depend on today; if that fails, the card falls back to *Download update*. Elsewhere, the places most likely to behave differently in real Figma are *Replace originals* inside auto-layout or component instances, and *Merge* across layers nested in rotated parents.
-
-## Publishing
-
-For a private organization plugin: **Plugins → Development → UtilityKit → Publish**. Figma assigns a numeric plugin ID at that point; replace the placeholder `"id"` in `manifest.json` with it.
+- `npm test` runs 60 automatic checks of the renaming rules, flattening, Drive links and updating.
+- `python3 test/e2e.py` clicks through every screen in a pretend Figma (needs Playwright).
+- These run outside Figma, so also try a new version in Figma itself on a spare file before sharing it.
