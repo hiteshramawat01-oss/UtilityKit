@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UtilityKit</title>
+<style>/*__CSS__*/</style>
+</head>
+<body>
+<div class="app" id="app" data-screen="home">
+
+  <header class="bar">
+    <button class="icon-btn" id="back" type="button" aria-label="Back" hidden><i data-icon="back"></i></button>
+    <div class="brand" id="brand">
+      <span class="mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="24" height="24"><rect width="24" height="24" rx="7" fill="var(--accent)"/><rect x="6" y="6" width="5" height="5" rx="1.4" fill="#fff"/><rect x="13" y="6" width="5" height="5" rx="2.5" fill="#fff" opacity=".7"/><rect x="6" y="13" width="5" height="5" rx="1.4" fill="#fff" opacity=".7"/><rect x="13" y="13" width="5" height="5" rx="1.4" fill="#fff"/></svg>
+      </span>
+      <span class="brand-text"><span class="brand-name">UtilityKit</span><span class="brand-by">by CT Designers</span></span>
+    </div>
+    <h1 class="bar-title" id="title" hidden></h1>
+    <div class="pill" id="selPill" title="Layers selected on the canvas"><span class="dot"></span><span id="selText">0 selected</span></div>
+  </header>
+
+  <main class="main">
+
+    <!-- ───────────── Home ───────────── -->
+    <section class="screen" data-screen="home">
+      <div class="scroll">
+        <div id="updBox" hidden></div>
+        <p class="lede">Everyday design utilities in one place.</p>
+        <button class="tool" type="button" data-go="renamer">
+          <span class="tool-icon"><i data-icon="rename"></i></span>
+          <span class="tool-text"><span class="tool-name">Layer Renamer</span><span class="tool-desc">Batch rename with Page, Design Phase, Client and Version.</span></span>
+          <i data-icon="chevron" class="tool-go"></i>
+        </button>
+        <button class="tool" type="button" data-go="flatten">
+          <span class="tool-icon"><i data-icon="layers"></i></span>
+          <span class="tool-text"><span class="tool-name">Flatten &amp; Merge</span><span class="tool-desc">Turn selected layers into a single image.</span></span>
+          <i data-icon="chevron" class="tool-go"></i>
+        </button>
+        <button class="tool" type="button" data-go="drive">
+          <span class="tool-icon"><i data-icon="link"></i></span>
+          <span class="tool-text"><span class="tool-name">Google Drive Links</span><span class="tool-desc">Find project links on the “For Designers” page.</span></span>
+          <i data-icon="chevron" class="tool-go"></i>
+        </button>
+        <div class="tool tool-soon" aria-disabled="true">
+          <span class="tool-icon"><i data-icon="grid"></i></span>
+          <span class="tool-text"><span class="tool-name">More utilities</span><span class="tool-desc">New tools will appear here.</span></span>
+          <span class="badge">Coming soon</span>
+        </div>
+      </div>
+      <div class="foot"><span>CT Designers · <span id="version"></span></span><button class="linkish" type="button" id="updCheck">Check for updates</button></div>
+    </section>
+
+    <!-- ───────────── Layer Renamer ───────────── -->
+    <section class="screen" data-screen="renamer" hidden>
+      <div class="scroll">
+        <div class="card">
+          <div class="card-head"><h2>Name format</h2><span class="hint">Empty fields are left out</span></div>
+          <div class="example" id="rnExample">
+            <span class="example-label">Live preview</span>
+            <span class="example-name" id="rnExampleName">—</span>
+            <span class="example-from" id="rnExampleFrom"></span>
+          </div>
+          <div class="fields" id="rnFields"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><h2>Formatting</h2></div>
+          <label class="check"><input type="checkbox" id="rnCapitalize"><span class="box"></span><span>Capitalize Each Word</span></label>
+          <label class="check"><input type="checkbox" id="rnStripDate"><span class="box"></span><span>Remove leading date <code>YYYY-MM</code></span></label>
+        </div>
+
+        <details class="card details" id="rnAdvanced">
+          <summary><h2>Advanced</h2><i data-icon="down" class="details-arrow"></i></summary>
+          <div class="details-body">
+            <div class="opt">
+              <span class="opt-label">Separator</span>
+              <div class="seg" id="rnSeparator" role="radiogroup" aria-label="Separator">
+                <button type="button" data-value="dash" title="Space, hyphen, space">A - B</button>
+                <button type="button" data-value="pipe">A | B</button>
+                <button type="button" data-value="slash">A / B</button>
+                <button type="button" data-value="underscore">A_B</button>
+              </div>
+            </div>
+            <label class="check"><input type="checkbox" id="rnVersionPrefix"><span class="box"></span><span>Write versions as <code>V1</code>, <code>V2</code>…</span></label>
+            <label class="check"><input type="checkbox" id="rnNumber"><span class="box"></span><span>Number identical names <code>01</code>, <code>02</code>…</span></label>
+            <label class="check"><input type="checkbox" id="rnResize"><span class="box"></span><span>Resize layers to <b id="rnResizeW">1600</b> px wide</span></label>
+            <div class="sub" id="rnResizeModes" hidden>
+              <label class="radio"><input type="radio" name="rnResizeMode" value="scale"><span class="ring"></span><span><b>Scale proportionally</b><small>Keeps the aspect ratio; contents scale too.</small></span></label>
+              <label class="radio"><input type="radio" name="rnResizeMode" value="width"><span class="ring"></span><span><b>Width only</b><small>Height stays as it is; auto layout re-hugs.</small></span></label>
+            </div>
+          </div>
+        </details>
+        <div class="note error" id="rnError" hidden></div>
+      </div>
+      <div class="actions">
+        <button class="btn primary" type="button" id="rnPreviewBtn">Preview changes</button>
+      </div>
+    </section>
+
+    <!-- ───────────── Rename Preview ───────────── -->
+    <section class="screen" data-screen="preview" hidden>
+      <div class="scroll">
+        <div class="stats">
+          <div class="stat"><b id="pvSelected">0</b><span>Selected</span></div>
+          <div class="stat stat-accent"><b id="pvRename">0</b><span id="pvRenameLabel">Will rename</span></div>
+          <div class="stat"><b id="pvUnchanged">0</b><span>Unchanged</span></div>
+        </div>
+        <div id="pvBanner"></div>
+        <div class="card list" id="pvRows"></div>
+      </div>
+      <div class="actions" id="pvActions">
+        <button class="btn" type="button" id="pvEdit">Edit</button>
+        <button class="btn primary grow" type="button" id="pvApply">Apply changes</button>
+      </div>
+    </section>
+
+    <!-- ───────────── Flatten & Merge ───────────── -->
+    <section class="screen" data-screen="flatten" hidden>
+      <div class="scroll">
+        <div class="card" id="flSummary"></div>
+        <div class="card">
+          <div class="card-head"><h2>Options</h2></div>
+          <div class="opt">
+            <span class="opt-label">Resolution</span>
+            <div class="seg" id="flScale" role="radiogroup" aria-label="Resolution">
+              <button type="button" data-value="1">1×</button>
+              <button type="button" data-value="2">2×</button>
+              <button type="button" data-value="3">3×</button>
+              <button type="button" data-value="4">4×</button>
+            </div>
+          </div>
+          <div class="opt-stack">
+            <span class="opt-label">Original layers</span>
+            <label class="radio"><input type="radio" name="flOriginals" value="keep" checked><span class="ring"></span><span><b>Keep originals</b><small>The image is placed beside them.</small></span></label>
+            <label class="radio"><input type="radio" name="flOriginals" value="replace"><span class="ring"></span><span><b>Replace originals</b><small>Removed once the image exists. Asks first.</small></span></label>
+          </div>
+        </div>
+        <div id="flBanner"></div>
+      </div>
+      <div class="actions" id="flActions">
+        <button class="btn grow" type="button" id="flEach">Flatten each</button>
+        <button class="btn primary grow" type="button" id="flMerge">Merge into one</button>
+      </div>
+      <div class="actions confirm" id="flConfirm" hidden>
+        <p id="flConfirmText"></p>
+        <div class="confirm-btns">
+          <button class="btn grow" type="button" id="flCancel">Cancel</button>
+          <button class="btn danger grow" type="button" id="flConfirmBtn">Replace</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ───────────── Google Drive Links ───────────── -->
+    <section class="screen" data-screen="drive" hidden>
+      <div class="scroll">
+        <div class="card" id="drStatus"></div>
+        <div class="card list" id="drLinks" hidden></div>
+        <div class="card">
+          <div class="card-head"><h2>Add a link</h2></div>
+          <label class="input-label" for="drLabel">Label</label>
+          <input class="input" id="drLabel" type="text" placeholder="e.g. Project folder" maxlength="120" autocomplete="off">
+          <label class="input-label" for="drUrl">Google Drive or Docs URL</label>
+          <input class="input" id="drUrl" type="text" placeholder="https://drive.google.com/…" autocomplete="off" spellcheck="false">
+          <div class="note error" id="drError" hidden></div>
+          <button class="btn block" type="button" id="drAdd"><i data-icon="plus"></i><span id="drAddText">Add link</span></button>
+        </div>
+        <details class="card details">
+          <summary><h2>What this can and can’t do</h2><i data-icon="down" class="details-arrow"></i></summary>
+          <div class="details-body prose">
+            <p><b>It can</b> find Google Drive and Google Docs hyperlinks that are already in this file’s “For Designers” page, open or copy them, and add new link text to that page.</p>
+            <p><b>It can’t</b> see inside Google Drive. It doesn’t check that a link works or who has access, and it never uploads, downloads or syncs files. The plugin never contacts Google.</p>
+          </div>
+        </details>
+      </div>
+    </section>
+
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+  <div class="grip" id="grip" title="Drag to resize" aria-hidden="true"></div>
+</div>
+<script>/*__JS__*/</script>
+</body>
+</html>

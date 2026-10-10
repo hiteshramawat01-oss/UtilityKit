@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<!--
+  Runs the real ui.html against the real code.js, with a mock Figma underneath.
+  Same shape as inside Figma: the interface lives in an iframe and the two sides
+  only exchange messages. Open this file in a browser to click around, or let
+  test/e2e.py drive it.
+-->
+<html><head><meta charset="utf-8"><title>UtilityKit harness</title>
+<style>html,body{margin:0;height:100%;background:#888}iframe{border:0;width:100%;height:100%;display:block}</style>
+</head><body>
+<iframe id="ui"></iframe>
+<script>var __UK_HEADLESS__ = true, __html__ = '';</script>
+<script src="mock-figma.js"></script>
+<script>
+  var env = createMockFigma();
+  var figma = env.figma;
+</script>
+<script src="../code.js"></script>
+<script>
+  var frame = document.getElementById('ui');
+  var post = function (m) { frame.contentWindow.postMessage({ pluginMessage: JSON.parse(JSON.stringify(m)) }, '*'); };
+  UK._post = post;
+  figma.on('selectionchange', function () { UK.emit('selection', UK.selectionInfo()); });
+  window.addEventListener('message', function (e) {
+    var msg = e.data && e.data.pluginMessage;
+    if (!msg || msg.type === 'result') return;
+    UK.dispatch(msg).then(post);
+  });
+  figma.ui.resize = function (w, h) { env.log.uiSize = { width: w, height: h }; };
+
+  // "Check for updates" reads version.json from GitHub. Here it is answered locally:
+  // set window.__versionJson to the file's text, or leave it null for "not found".
+  window.__versionJson = null;
+  var realFetch = window.fetch;
+  window.fetch = function (url) {
+    if (String(url).indexOf('raw.githubusercontent.com') === -1) return realFetch.apply(this, arguments);
+    (env.log.fetched = env.log.fetched || []).push(String(url));
+    var body = window.__versionJson;
+    if (body === 'offline') return Promise.reject(new TypeError('Failed to fetch'));
+    return Promise.resolve(body === null
+      ? { ok: false, status: 404, text: function () { return Promise.resolve('404: Not Found'); } }
+      : { ok: true, status: 200, text: function () { return Promise.resolve(body); } });
+  };
+
+  // A small demo document so the harness is useful by hand too.
+  var art = env.add('FRAME', { name: 'Desktop', x: 0, y: 0, width: 1440, height: 3200 });
+  window.demo = {
+    art: art,
+    a: env.add('FRAME', { name: '2026-05 - home page', x: 0, y: 0, width: 1440, height: 900 }, art),
+    b: env.add('FRAME', { name: 'pricing_page', x: 0, y: 900, width: 1440, height: 700 }, art),
+    c: env.add('FRAME', { name: 'About - Design - Acme Corp - V1', x: 0, y: 1600, width: 1440, height: 800 }, art)
+  };
+
+  // Load the interface last, once the plugin side is listening (as in Figma).
+  frame.src = '../ui.html';
+</script>
+</body></html>
