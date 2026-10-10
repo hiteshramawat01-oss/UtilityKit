@@ -1,0 +1,1325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UtilityKit</title>
+<style>:root {
+  --bg: #F5F5F7;
+  --surface: #FFFFFF;
+  --sunken: #F7F7F9;
+  --border: #E5E5EB;
+  --border-strong: #D2D2DB;
+  --text: #1B1B21;
+  --muted: #696975;
+  --faint: #9797A3;
+  --accent: #6B46E5;
+  --accent-hover: #5A37CF;
+  --accent-soft: #F1EDFE;
+  --accent-text: #5A37CF;
+  --on-accent: #FFFFFF;
+  --ok: #156F43;
+  --ok-soft: #E7F5ED;
+  --warn: #7A5200;
+  --warn-soft: #FFF3D9;
+  --err: #B3261E;
+  --err-soft: #FDECEA;
+  --shadow: 0 1px 2px rgba(20, 20, 40, .05);
+  --r: 10px;
+  --r-sm: 6px;
+}
+html.figma-dark {
+  --bg: #2C2C2C;
+  --surface: #353535;
+  --sunken: #2F2F2F;
+  --border: #474747;
+  --border-strong: #5C5C5C;
+  --text: #F2F2F2;
+  --muted: #B6B6B6;
+  --faint: #8E8E8E;
+  --accent: #7C5CF0;
+  --accent-hover: #8E72F5;
+  --accent-soft: rgba(140, 114, 245, .18);
+  --accent-text: #C2B3FF;
+  --ok: #7ED9A8;
+  --ok-soft: rgba(126, 217, 168, .13);
+  --warn: #F1C76E;
+  --warn-soft: rgba(241, 199, 110, .13);
+  --err: #FF9D94;
+  --err-soft: rgba(255, 157, 148, .13);
+  --shadow: none;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 12px/1.45 Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  user-select: none;
+}
+[hidden] { display: none !important; }
+h1, h2, p { margin: 0; }
+h2 { font-size: 12px; font-weight: 600; letter-spacing: .01em; }
+code { font: 11px/1 ui-monospace, "SF Mono", Menlo, Consolas, monospace; background: var(--sunken); border: 1px solid var(--border); border-radius: 4px; padding: 1px 4px; color: var(--muted); }
+b { font-weight: 600; }
+button, input, select { font: inherit; color: inherit; }
+i[data-icon] { display: inline-flex; width: 16px; height: 16px; flex: none; }
+[data-icon] svg { display: block; flex: none; width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+
+.app { height: 100%; display: flex; flex-direction: column; min-width: 0; }
+
+/* ── top bar ── */
+.bar { flex: none; height: 48px; padding: 0 12px; display: flex; align-items: center; gap: 8px; background: var(--surface); border-bottom: 1px solid var(--border); }
+.brand { display: flex; align-items: center; gap: 9px; min-width: 0; flex: 1; }
+.mark { display: inline-flex; flex: none; }
+.brand-text { display: flex; flex-direction: column; line-height: 1.2; min-width: 0; }
+.brand-name { font-size: 13px; font-weight: 650; letter-spacing: -.005em; }
+.brand-by { font-size: 10.5px; color: var(--muted); }
+.bar-title { flex: 1; min-width: 0; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.icon-btn { flex: none; width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--muted); cursor: pointer; padding: 0; }
+.icon-btn:hover { background: var(--sunken); color: var(--text); }
+.icon-btn:disabled { opacity: .35; cursor: default; background: transparent; }
+.pill { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 9px 0 8px; border-radius: 11px; background: var(--sunken); border: 1px solid var(--border); color: var(--muted); font-size: 11px; white-space: nowrap; }
+.pill .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--faint); }
+.pill.on { background: var(--accent-soft); border-color: transparent; color: var(--accent-text); font-weight: 550; }
+.pill.on .dot { background: var(--accent); }
+
+/* ── screens ── */
+.main { flex: 1; min-height: 0; position: relative; }
+.screen { position: absolute; inset: 0; display: flex; flex-direction: column; }
+.scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.scroll::-webkit-scrollbar { width: 8px; }
+.scroll::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; border: 2px solid var(--bg); }
+.actions { flex: none; display: flex; gap: 8px; padding: 10px 12px; background: var(--surface); border-top: 1px solid var(--border); }
+.foot { flex: none; display: flex; justify-content: space-between; padding: 8px 14px 10px; color: var(--faint); font-size: 10.5px; }
+.foot { align-items: center; }
+.linkish { border: 0; background: transparent; padding: 2px 0; font-size: 10.5px; color: var(--accent-text); cursor: pointer; font-weight: 550; border-radius: 4px; }
+.linkish:hover { text-decoration: underline; }
+.linkish:disabled { color: var(--faint); cursor: default; text-decoration: none; }
+.linkish:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+#updBox .note-body p { color: var(--text); opacity: .85; }
+#updBox .note-body ul { color: var(--text); }
+.note-btns { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
+.note .note-btns .btn { margin-top: 0; }
+.note .btn.primary { color: var(--on-accent); }
+.lede { color: var(--muted); padding: 2px 2px 0; }
+
+/* ── home tools ── */
+.tool { display: flex; align-items: center; gap: 11px; width: 100%; text-align: left; padding: 11px 10px 11px 11px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); box-shadow: var(--shadow); cursor: pointer; transition: border-color .12s, transform .12s; }
+.tool:hover { border-color: var(--accent); }
+.tool:active { transform: scale(.995); }
+.tool:focus-visible, .btn:focus-visible, .icon-btn:focus-visible, .seg button:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.tool-icon { flex: none; width: 34px; height: 34px; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center; background: var(--accent-soft); color: var(--accent-text); }
+.tool-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.tool-name { font-size: 12.5px; font-weight: 600; }
+.tool-desc { color: var(--muted); font-size: 11.5px; line-height: 1.35; }
+.tool-go { color: var(--faint); }
+.tool:hover .tool-go { color: var(--accent-text); }
+.tool-soon { cursor: default; background: transparent; border-style: dashed; box-shadow: none; }
+.tool-soon:hover { border-color: var(--border); }
+.tool-soon .tool-icon { background: var(--sunken); color: var(--faint); }
+.tool-soon .tool-name { color: var(--muted); }
+.badge { flex: none; font-size: 10.5px; font-weight: 550; color: var(--muted); background: var(--sunken); border: 1px solid var(--border); border-radius: 10px; padding: 2px 8px; white-space: nowrap; }
+
+/* ── cards ── */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); box-shadow: var(--shadow); padding: 12px; display: flex; flex-direction: column; gap: 9px; flex: none; }
+.card-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.hint { color: var(--faint); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.example { display: flex; flex-direction: column; gap: 2px; padding: 9px 10px; border-radius: 8px; background: var(--accent-soft); min-width: 0; }
+.example-label { font-size: 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--accent-text); opacity: .85; }
+.example-name { font-size: 12.5px; font-weight: 600; overflow-wrap: anywhere; user-select: text; }
+.example-from { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.example.is-empty { background: var(--sunken); }
+.example.is-empty .example-label { color: var(--muted); }
+.example.is-empty .example-name { font-weight: 500; color: var(--muted); }
+
+/* ── naming fields ── */
+.fields { display: flex; flex-direction: column; gap: 6px; }
+.field { display: grid; grid-template-columns: 28px 86px minmax(0, 1fr) auto; align-items: center; column-gap: 8px; row-gap: 6px; }
+.field.off .field-label { color: var(--faint); }
+.field.off .input { opacity: .5; }
+.field-label { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.field-extra { grid-column: 3 / 4; }
+.move { display: inline-flex; }
+.move .icon-btn { width: 20px; height: 28px; }
+
+.switch { position: relative; width: 28px; height: 16px; flex: none; cursor: pointer; }
+.switch input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
+.switch span { position: absolute; inset: 0; border-radius: 8px; background: var(--border-strong); transition: background .12s; pointer-events: none; }
+.switch span::after { content: ""; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: #fff; transition: transform .12s; box-shadow: 0 1px 1px rgba(0,0,0,.2); }
+.switch input:checked + span { background: var(--accent); }
+.switch input:checked + span::after { transform: translateX(12px); }
+.switch input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.input, .select { width: 100%; min-width: 0; height: 28px; padding: 0 8px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); color: var(--text); outline: none; user-select: text; }
+.input::placeholder { color: var(--faint); }
+.input:hover, .select:hover { border-color: var(--border-strong); }
+.input:focus, .select:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.input.invalid { border-color: var(--err); }
+.select { appearance: none; -webkit-appearance: none; padding-right: 24px; cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%23808090' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4.5 6.5 8 10l3.5-3.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 5px center; }
+.input-label { font-size: 11px; color: var(--muted); margin-bottom: -5px; }
+
+/* ── checks, radios, segments ── */
+.check, .radio { display: flex; align-items: flex-start; gap: 8px; cursor: pointer; position: relative; line-height: 16px; }
+.check input, .radio input { position: absolute; opacity: 0; width: 16px; height: 16px; margin: 0; cursor: pointer; }
+.box, .ring { flex: none; width: 16px; height: 16px; border: 1.5px solid var(--border-strong); background: var(--surface); transition: background .1s, border-color .1s; }
+.box { border-radius: 4px; }
+.ring { border-radius: 50%; }
+.check input:checked + .box { background: var(--accent); border-color: var(--accent); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m3.5 7.2 2.6 2.6 5.4-5.6'/%3E%3C/svg%3E"); background-position: center; background-size: 14px; background-repeat: no-repeat; }
+.radio input:checked + .ring { border-color: var(--accent); border-width: 5px; }
+.check input:focus-visible + .box, .radio input:focus-visible + .ring { outline: 2px solid var(--accent); outline-offset: 2px; }
+.radio small { display: block; color: var(--muted); font-size: 11px; line-height: 1.35; margin-top: 1px; }
+.radio b { font-weight: 500; }
+.sub { display: flex; flex-direction: column; gap: 8px; margin: -1px 0 0 24px; padding: 9px 10px; border-radius: 8px; background: var(--sunken); }
+.opt { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.opt-stack { display: flex; flex-direction: column; gap: 8px; padding-top: 2px; }
+.opt-label { color: var(--muted); white-space: nowrap; }
+.seg { display: inline-flex; padding: 2px; gap: 2px; border-radius: 7px; background: var(--sunken); border: 1px solid var(--border); min-width: 0; }
+.seg button { height: 22px; min-width: 34px; padding: 0 8px; border: 0; border-radius: 5px; background: transparent; color: var(--muted); cursor: pointer; white-space: nowrap; font-size: 11.5px; }
+.seg button:hover { color: var(--text); }
+.seg button[aria-checked="true"] { background: var(--surface); color: var(--accent-text); font-weight: 600; box-shadow: 0 0 0 1px var(--border), 0 1px 2px rgba(20,20,40,.08); }
+
+details.details { padding: 0; gap: 0; }
+details.details > summary { list-style: none; display: flex; align-items: center; justify-content: space-between; padding: 11px 12px; cursor: pointer; border-radius: var(--r); }
+details.details > summary::-webkit-details-marker { display: none; }
+.details-arrow { color: var(--faint); transition: transform .15s; }
+details[open] .details-arrow { transform: rotate(180deg); }
+.details-body { display: flex; flex-direction: column; gap: 9px; padding: 0 12px 12px; }
+.prose p { color: var(--muted); line-height: 1.5; }
+.prose p + p { margin-top: -2px; }
+.prose b { color: var(--text); }
+
+/* ── buttons ── */
+.btn { height: 32px; padding: 0 14px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); font-weight: 550; cursor: pointer; white-space: nowrap; min-width: 0; }
+.btn:hover { background: var(--sunken); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.btn.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+.btn.danger { background: var(--err); border-color: var(--err); color: #fff; }
+html.figma-dark .btn.danger { background: #D9473E; border-color: #D9473E; }
+.btn:disabled { opacity: .45; cursor: default; }
+.btn.primary:disabled { background: var(--accent); border-color: var(--accent); }
+.btn.small { height: 26px; padding: 0 10px; font-size: 11.5px; border-radius: 6px; }
+.btn.block { width: 100%; }
+.btn.grow, .actions > .btn:only-child { flex: 1; }
+.btn.busy { pointer-events: none; }
+.btn.busy::before { content: ""; width: 12px; height: 12px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.actions.confirm { flex-direction: column; gap: 8px; }
+.actions.confirm p { line-height: 1.4; }
+.confirm-btns { display: flex; gap: 8px; }
+
+/* ── stats ── */
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; flex: none; }
+.stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 9px 10px 8px; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.stat b { font-size: 18px; font-weight: 650; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.stat span { color: var(--muted); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stat-accent { background: var(--accent-soft); border-color: transparent; }
+.stat-accent b, .stat-accent span { color: var(--accent-text); }
+
+/* ── lists ── */
+.card.list { padding: 0; gap: 0; }
+.row { padding: 9px 12px; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.row + .row { border-top: 1px solid var(--border); }
+.row-old { color: var(--muted); overflow-wrap: anywhere; font-size: 11.5px; }
+.row-new { display: flex; gap: 6px; align-items: flex-start; font-weight: 600; overflow-wrap: anywhere; min-width: 0; }
+.row-new i { color: var(--accent-text); margin-top: 1px; }
+.row-new span { min-width: 0; user-select: text; }
+.row.done .row-new i { color: var(--ok); }
+.row.same .row-new { font-weight: 500; }
+.row-meta { color: var(--faint); font-size: 11px; display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
+.tag { display: inline-block; font-size: 10.5px; font-weight: 550; padding: 1px 6px; border-radius: 4px; background: var(--sunken); border: 1px solid var(--border); color: var(--muted); white-space: nowrap; }
+.tag.accent { background: var(--accent-soft); border-color: transparent; color: var(--accent-text); }
+.more { padding: 9px 12px; color: var(--muted); border-top: 1px solid var(--border); text-align: center; }
+.empty { padding: 18px 14px; text-align: center; color: var(--muted); display: flex; flex-direction: column; gap: 3px; align-items: center; }
+.empty b { color: var(--text); }
+
+.link-row { flex-direction: row; align-items: center; gap: 8px; padding: 8px 6px 8px 12px; }
+.link-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.link-top { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.link-label { font-weight: 550; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.link-url { color: var(--muted); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; user-select: text; }
+.link-btns { display: flex; flex: none; }
+
+/* ── summary blocks ── */
+.kv { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.kv span:first-child { color: var(--muted); }
+.kv span:last-child { font-weight: 550; text-align: right; font-variant-numeric: tabular-nums; }
+.big { font-size: 15px; font-weight: 650; }
+.status { display: flex; align-items: center; gap: 10px; }
+.status-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.status-text small { color: var(--muted); font-size: 11.5px; }
+.quick { display: flex; gap: 8px; }
+.quick .btn { flex: 1; }
+
+/* ── notes / banners ── */
+.note { display: flex; gap: 8px; align-items: flex-start; padding: 9px 10px; border-radius: 8px; background: var(--sunken); color: var(--muted); line-height: 1.4; flex: none; }
+.note i { margin-top: 0; }
+.note-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.note-body b { color: inherit; }
+.note ul { margin: 0; padding-left: 16px; }
+.note li { overflow-wrap: anywhere; }
+.note.info { background: var(--accent-soft); color: var(--accent-text); }
+.note.success { background: var(--ok-soft); color: var(--ok); }
+.note.warn { background: var(--warn-soft); color: var(--warn); }
+.note.error { background: var(--err-soft); color: var(--err); }
+.note .btn { align-self: flex-start; color: var(--text); margin-top: 2px; }
+
+.toast { position: absolute; left: 50%; bottom: 62px; transform: translateX(-50%); max-width: calc(100% - 32px); padding: 8px 12px; border-radius: 8px; background: #1B1B21; color: #fff; font-size: 11.5px; line-height: 1.35; box-shadow: 0 6px 20px rgba(0,0,0,.22); z-index: 10; text-align: center; }
+.toast.error { background: var(--err); }
+html.figma-dark .toast { background: #F2F2F2; color: #1B1B21; }
+html.figma-dark .toast.error { background: #D9473E; color: #fff; }
+
+.grip { position: absolute; right: 0; bottom: 0; width: 14px; height: 14px; cursor: nwse-resize; z-index: 20;
+  background: linear-gradient(135deg, transparent 0 55%, var(--border-strong) 55% 62%, transparent 62% 74%, var(--border-strong) 74% 81%, transparent 81%); }
+
+/* ── narrow plugin windows ── */
+@media (max-width: 339px) {
+  .scroll { padding: 10px; }
+  .field { grid-template-columns: 28px minmax(0, 1fr) auto; }
+  .field > .input, .field > .select { grid-column: 1 / -1; grid-row: 2; }
+  .field-extra { grid-column: 1 / -1; }
+  .brand-by { display: none; }
+  .opt { flex-direction: column; align-items: stretch; gap: 6px; }
+  .seg { display: flex; }
+  .seg button { flex: 1; padding: 0 4px; min-width: 0; }
+  .hint { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation-duration: 0s !important; } }
+</style>
+</head>
+<body>
+<div class="app" id="app" data-screen="home">
+
+  <header class="bar">
+    <button class="icon-btn" id="back" type="button" aria-label="Back" hidden><i data-icon="back"></i></button>
+    <div class="brand" id="brand">
+      <span class="mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="24" height="24"><rect width="24" height="24" rx="7" fill="var(--accent)"/><rect x="6" y="6" width="5" height="5" rx="1.4" fill="#fff"/><rect x="13" y="6" width="5" height="5" rx="2.5" fill="#fff" opacity=".7"/><rect x="6" y="13" width="5" height="5" rx="1.4" fill="#fff" opacity=".7"/><rect x="13" y="13" width="5" height="5" rx="1.4" fill="#fff"/></svg>
+      </span>
+      <span class="brand-text"><span class="brand-name">UtilityKit</span><span class="brand-by">by CT Designers</span></span>
+    </div>
+    <h1 class="bar-title" id="title" hidden></h1>
+    <div class="pill" id="selPill" title="Layers selected on the canvas"><span class="dot"></span><span id="selText">0 selected</span></div>
+  </header>
+
+  <main class="main">
+
+    <!-- ───────────── Home ───────────── -->
+    <section class="screen" data-screen="home">
+      <div class="scroll">
+        <div id="updBox" hidden></div>
+        <p class="lede">Everyday design utilities in one place.</p>
+        <button class="tool" type="button" data-go="renamer">
+          <span class="tool-icon"><i data-icon="rename"></i></span>
+          <span class="tool-text"><span class="tool-name">Layer Renamer</span><span class="tool-desc">Batch rename with Page, Design Phase, Client and Version.</span></span>
+          <i data-icon="chevron" class="tool-go"></i>
+        </button>
+        <button class="tool" type="button" data-go="flatten">
+          <span class="tool-icon"><i data-icon="layers"></i></span>
+          <span class="tool-text"><span class="tool-name">Flatten &amp; Merge</span><span class="tool-desc">Turn selected layers into a single image.</span></span>
+          <i data-icon="chevron" class="tool-go"></i>
+        </button>
+        <button class="tool" type="button" data-go="drive">
+          <span class="tool-icon"><i data-icon="link"></i></span>
+          <span class="tool-text"><span class="tool-name">Google Drive Links</span><span class="tool-desc">Find project links on the “For Designers” page.</span></span>
+          <i data-icon="chevron" class="tool-go"></i>
+        </button>
+        <div class="tool tool-soon" aria-disabled="true">
+          <span class="tool-icon"><i data-icon="grid"></i></span>
+          <span class="tool-text"><span class="tool-name">More utilities</span><span class="tool-desc">New tools will appear here.</span></span>
+          <span class="badge">Coming soon</span>
+        </div>
+      </div>
+      <div class="foot"><span>CT Designers · <span id="version"></span></span><button class="linkish" type="button" id="updCheck">Check for updates</button></div>
+    </section>
+
+    <!-- ───────────── Layer Renamer ───────────── -->
+    <section class="screen" data-screen="renamer" hidden>
+      <div class="scroll">
+        <div class="card">
+          <div class="card-head"><h2>Name format</h2><span class="hint">Empty fields are left out</span></div>
+          <div class="example" id="rnExample">
+            <span class="example-label">Live preview</span>
+            <span class="example-name" id="rnExampleName">—</span>
+            <span class="example-from" id="rnExampleFrom"></span>
+          </div>
+          <div class="fields" id="rnFields"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><h2>Formatting</h2></div>
+          <label class="check"><input type="checkbox" id="rnCapitalize"><span class="box"></span><span>Capitalize Each Word</span></label>
+          <label class="check"><input type="checkbox" id="rnStripDate"><span class="box"></span><span>Remove leading date <code>YYYY-MM</code></span></label>
+        </div>
+
+        <details class="card details" id="rnAdvanced">
+          <summary><h2>Advanced</h2><i data-icon="down" class="details-arrow"></i></summary>
+          <div class="details-body">
+            <div class="opt">
+              <span class="opt-label">Separator</span>
+              <div class="seg" id="rnSeparator" role="radiogroup" aria-label="Separator">
+                <button type="button" data-value="dash" title="Space, hyphen, space">A - B</button>
+                <button type="button" data-value="pipe">A | B</button>
+                <button type="button" data-value="slash">A / B</button>
+                <button type="button" data-value="underscore">A_B</button>
+              </div>
+            </div>
+            <label class="check"><input type="checkbox" id="rnVersionPrefix"><span class="box"></span><span>Write versions as <code>V1</code>, <code>V2</code>…</span></label>
+            <label class="check"><input type="checkbox" id="rnNumber"><span class="box"></span><span>Number identical names <code>01</code>, <code>02</code>…</span></label>
+            <label class="check"><input type="checkbox" id="rnResize"><span class="box"></span><span>Resize layers to <b id="rnResizeW">1600</b> px wide</span></label>
+            <div class="sub" id="rnResizeModes" hidden>
+              <label class="radio"><input type="radio" name="rnResizeMode" value="scale"><span class="ring"></span><span><b>Scale proportionally</b><small>Keeps the aspect ratio; contents scale too.</small></span></label>
+              <label class="radio"><input type="radio" name="rnResizeMode" value="width"><span class="ring"></span><span><b>Width only</b><small>Height stays as it is; auto layout re-hugs.</small></span></label>
+            </div>
+          </div>
+        </details>
+        <div class="note error" id="rnError" hidden></div>
+      </div>
+      <div class="actions">
+        <button class="btn primary" type="button" id="rnPreviewBtn">Preview changes</button>
+      </div>
+    </section>
+
+    <!-- ───────────── Rename Preview ───────────── -->
+    <section class="screen" data-screen="preview" hidden>
+      <div class="scroll">
+        <div class="stats">
+          <div class="stat"><b id="pvSelected">0</b><span>Selected</span></div>
+          <div class="stat stat-accent"><b id="pvRename">0</b><span id="pvRenameLabel">Will rename</span></div>
+          <div class="stat"><b id="pvUnchanged">0</b><span>Unchanged</span></div>
+        </div>
+        <div id="pvBanner"></div>
+        <div class="card list" id="pvRows"></div>
+      </div>
+      <div class="actions" id="pvActions">
+        <button class="btn" type="button" id="pvEdit">Edit</button>
+        <button class="btn primary grow" type="button" id="pvApply">Apply changes</button>
+      </div>
+    </section>
+
+    <!-- ───────────── Flatten & Merge ───────────── -->
+    <section class="screen" data-screen="flatten" hidden>
+      <div class="scroll">
+        <div class="card" id="flSummary"></div>
+        <div class="card">
+          <div class="card-head"><h2>Options</h2></div>
+          <div class="opt">
+            <span class="opt-label">Resolution</span>
+            <div class="seg" id="flScale" role="radiogroup" aria-label="Resolution">
+              <button type="button" data-value="1">1×</button>
+              <button type="button" data-value="2">2×</button>
+              <button type="button" data-value="3">3×</button>
+              <button type="button" data-value="4">4×</button>
+            </div>
+          </div>
+          <div class="opt-stack">
+            <span class="opt-label">Original layers</span>
+            <label class="radio"><input type="radio" name="flOriginals" value="keep" checked><span class="ring"></span><span><b>Keep originals</b><small>The image is placed beside them.</small></span></label>
+            <label class="radio"><input type="radio" name="flOriginals" value="replace"><span class="ring"></span><span><b>Replace originals</b><small>Removed once the image exists. Asks first.</small></span></label>
+          </div>
+        </div>
+        <div id="flBanner"></div>
+      </div>
+      <div class="actions" id="flActions">
+        <button class="btn grow" type="button" id="flEach">Flatten each</button>
+        <button class="btn primary grow" type="button" id="flMerge">Merge into one</button>
+      </div>
+      <div class="actions confirm" id="flConfirm" hidden>
+        <p id="flConfirmText"></p>
+        <div class="confirm-btns">
+          <button class="btn grow" type="button" id="flCancel">Cancel</button>
+          <button class="btn danger grow" type="button" id="flConfirmBtn">Replace</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ───────────── Google Drive Links ───────────── -->
+    <section class="screen" data-screen="drive" hidden>
+      <div class="scroll">
+        <div class="card" id="drStatus"></div>
+        <div class="card list" id="drLinks" hidden></div>
+        <div class="card">
+          <div class="card-head"><h2>Add a link</h2></div>
+          <label class="input-label" for="drLabel">Label</label>
+          <input class="input" id="drLabel" type="text" placeholder="e.g. Project folder" maxlength="120" autocomplete="off">
+          <label class="input-label" for="drUrl">Google Drive or Docs URL</label>
+          <input class="input" id="drUrl" type="text" placeholder="https://drive.google.com/…" autocomplete="off" spellcheck="false">
+          <div class="note error" id="drError" hidden></div>
+          <button class="btn block" type="button" id="drAdd"><i data-icon="plus"></i><span id="drAddText">Add link</span></button>
+        </div>
+        <details class="card details">
+          <summary><h2>What this can and can’t do</h2><i data-icon="down" class="details-arrow"></i></summary>
+          <div class="details-body prose">
+            <p><b>It can</b> find Google Drive and Google Docs hyperlinks that are already in this file’s “For Designers” page, open or copy them, and add new link text to that page.</p>
+            <p><b>It can’t</b> see inside Google Drive. It doesn’t check that a link works or who has access, and it never uploads, downloads or syncs files. The plugin never contacts Google.</p>
+          </div>
+        </details>
+      </div>
+    </section>
+
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+  <div class="grip" id="grip" title="Drag to resize" aria-hidden="true"></div>
+</div>
+<script>/*
+ * UtilityKit interface. Runs in the plugin iframe: draws the screens and asks
+ * the plugin logic (code.js) to do the work. It never changes the document itself.
+ */
+(function () {
+  'use strict';
+
+  var ICONS = {
+    back: '<path d="M10 3.5 5.5 8l4.5 4.5"/>',
+    chevron: '<path d="M6 3.5 10.5 8 6 12.5"/>',
+    up: '<path d="m4.5 9.5 3.5-3.5 3.5 3.5"/>',
+    down: '<path d="M4.5 6.5 8 10l3.5-3.5"/>',
+    arrow: '<path d="M3 8h10M9.5 4.5 13 8l-3.5 3.5"/>',
+    check: '<path d="m3.5 8.5 3 3 6-6.5"/>',
+    rename: '<path d="m10.6 2.9 2.5 2.5-7.4 7.4-3.1.6.6-3.1 7.4-7.4ZM9.2 4.3l2.5 2.5"/>',
+    layers: '<path d="m8 2.5 5.5 2.8L8 8.1 2.5 5.3 8 2.5ZM2.5 8 8 10.8 13.5 8M2.5 10.7 8 13.5l5.5-2.8"/>',
+    link: '<path d="M6.8 9.2a2.6 2.6 0 0 0 3.7 0l2.1-2.1a2.6 2.6 0 0 0-3.7-3.7l-.8.8M9.2 6.8a2.6 2.6 0 0 0-3.7 0L3.4 8.9a2.6 2.6 0 0 0 3.7 3.7l.8-.8"/>',
+    grid: '<rect x="2.75" y="2.75" width="4" height="4" rx="1"/><rect x="9.25" y="2.75" width="4" height="4" rx="1"/><rect x="2.75" y="9.25" width="4" height="4" rx="1"/><rect x="9.25" y="9.25" width="4" height="4" rx="1"/>',
+    copy: '<rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M10.5 5.5V4A1.5 1.5 0 0 0 9 2.5H4A1.5 1.5 0 0 0 2.5 4v5A1.5 1.5 0 0 0 4 10.5h1.5"/>',
+    open: '<path d="M9 3h4v4M13 3 7.5 8.5M11 9.5V12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h2.5"/>',
+    refresh: '<path d="M13 8a5 5 0 1 1-1.5-3.5M13 2.5V5h-2.5"/>',
+    plus: '<path d="M8 3.5v9M3.5 8h9"/>',
+    locate: '<circle cx="8" cy="8" r="4"/><path d="M8 1.5v2.5M8 12v2.5M1.5 8H4M12 8h2.5"/>',
+    info: '<circle cx="8" cy="8" r="5.5"/><path d="M8 7.3v3.4M8 5.2v.1"/>',
+    warn: '<path d="M8 2.6 14 13H2L8 2.6ZM8 6.6v3M8 11.3v.1"/>',
+    success: '<circle cx="8" cy="8" r="5.5"/><path d="m5.6 8.2 1.7 1.7 3.1-3.4"/>'
+  };
+
+  function svg(name) {
+    return '<svg viewBox="0 0 16 16" aria-hidden="true">' + (ICONS[name] || '') + '</svg>';
+  }
+  function paintIcons(root) {
+    var nodes = (root || document).querySelectorAll('i[data-icon]');
+    for (var i = 0; i < nodes.length; i++) {
+      if (!nodes[i].firstChild) nodes[i].innerHTML = svg(nodes[i].getAttribute('data-icon'));
+    }
+  }
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  /** h('div', { class: 'x', onclick: fn }, child, 'text', ...) */
+  function h(tag, attrs) {
+    var node = document.createElement(tag);
+    var key;
+    for (key in (attrs || {})) {
+      var v = attrs[key];
+      if (v === null || v === undefined || v === false) continue;
+      if (key === 'class') node.className = v;
+      else if (key.slice(0, 2) === 'on') node.addEventListener(key.slice(2), v);
+      else if (key === 'icon') { node.setAttribute('data-icon', v); node.innerHTML = svg(v); }
+      else if (key === 'checked' || key === 'disabled' || key === 'value' || key === 'hidden') node[key] = v;
+      else node.setAttribute(key, v === true ? '' : v);
+    }
+    for (var i = 2; i < arguments.length; i++) {
+      var kid = arguments[i];
+      if (kid === null || kid === undefined || kid === false) continue;
+      if (Array.isArray(kid)) { for (var j = 0; j < kid.length; j++) if (kid[j]) node.appendChild(kid[j]); }
+      else node.appendChild(typeof kid === 'string' || typeof kid === 'number' ? document.createTextNode(String(kid)) : kid);
+    }
+    return node;
+  }
+  function clear(node) { while (node.firstChild) node.removeChild(node.firstChild); return node; }
+  function plural(n, one, many) { return n + ' ' + (n === 1 ? one : (many || one + 's')); }
+  function num(n) { return Math.round(n).toLocaleString('en-US'); }
+
+  // ── bridge to the plugin logic ──────────────────────────────────────────
+
+  var pending = {};
+  var seq = 0;
+
+  function call(type, payload) {
+    return new Promise(function (resolve, reject) {
+      var id = ++seq;
+      pending[id] = { resolve: resolve, reject: reject };
+      parent.postMessage({ pluginMessage: { type: type, id: id, payload: payload } }, '*');
+    });
+  }
+
+  window.addEventListener('message', function (event) {
+    var msg = event.data && event.data.pluginMessage;
+    if (!msg) return;
+    if (msg.type === 'result') {
+      var p = pending[msg.id];
+      if (!p) return;
+      delete pending[msg.id];
+      if (msg.ok) p.resolve(msg.data);
+      else {
+        var err = new Error((msg.error && msg.error.message) || 'Something went wrong.');
+        err.code = msg.error && msg.error.code;
+        p.reject(err);
+      }
+    } else if (msg.type === 'selection') {
+      onSelection(msg.data);
+    } else if (msg.type === 'progress') {
+      onProgress(msg.data);
+    }
+  });
+
+  // ── state ───────────────────────────────────────────────────────────────
+
+  var state = {
+    screen: 'home',
+    selection: { count: 0, names: [] },
+    settings: null,          // renamer settings (shape defined by the plugin logic)
+    fields: { page: 'Page', phase: 'Design Phase', client: 'Client', version: 'Version' },
+    flatten: { scale: 2, replace: false, summary: null, result: null, pendingMode: null, busy: false },
+    preview: null,
+    applied: null,
+    previewNotice: '',
+    drive: null,
+    driveBusy: false
+  };
+
+  var TITLES = { renamer: 'Layer Renamer', preview: 'Rename Preview', flatten: 'Flatten & Merge', drive: 'Google Drive Links' };
+  var PARENT = { renamer: 'home', flatten: 'home', drive: 'home', preview: 'renamer' };
+  var PLACEHOLDERS = { page: 'e.g. Home', phase: 'e.g. Design', client: 'Client name', version: 'e.g. 1' };
+
+  // ── toast / notes ───────────────────────────────────────────────────────
+
+  var toastTimer = null;
+  function toast(message, isError) {
+    var t = $('toast');
+    t.textContent = message;
+    t.className = 'toast' + (isError ? ' error' : '');
+    t.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.hidden = true; }, isError ? 4500 : 2200);
+  }
+  function fail(err) { toast(err && err.message ? err.message : 'Something went wrong.', true); }
+
+  function note(kind, title, lines, extra) {
+    var icon = kind === 'success' ? 'success' : kind === 'info' ? 'info' : 'warn';
+    var body = h('div', { class: 'note-body' }, title ? h('b', null, title) : null);
+    if (lines && lines.length) {
+      if (lines.length === 1) body.appendChild(h('span', null, lines[0]));
+      else body.appendChild(h('ul', null, lines.map(function (l) { return h('li', null, l); })));
+    }
+    if (extra) body.appendChild(extra);
+    return h('div', { class: 'note ' + kind }, h('i', { icon: icon }), body);
+  }
+
+  function setBusy(button, busy, label) {
+    if (!button) return;
+    if (busy) {
+      if (!button.dataset.label) button.dataset.label = button.textContent;
+      button.classList.add('busy');
+      button.disabled = true;
+      if (label) button.textContent = label;
+    } else {
+      button.classList.remove('busy');
+      if (button.dataset.label) { button.textContent = button.dataset.label; delete button.dataset.label; }
+    }
+  }
+
+  // ── navigation ──────────────────────────────────────────────────────────
+
+  function go(screen) {
+    state.screen = screen;
+    $('app').setAttribute('data-screen', screen);
+    var screens = document.querySelectorAll('.screen');
+    for (var i = 0; i < screens.length; i++) screens[i].hidden = screens[i].getAttribute('data-screen') !== screen;
+    var home = screen === 'home';
+    $('back').hidden = home;
+    $('brand').hidden = !home;
+    $('title').hidden = home;
+    $('title').textContent = TITLES[screen] || '';
+    $('toast').hidden = true;
+    if (screen === 'renamer') refreshExample();
+    if (screen === 'flatten') { state.flatten.result = null; state.flatten.pendingMode = null; refreshSummary(); }
+    if (screen === 'drive') scanDrive();
+    var first = document.querySelector('.screen:not([hidden]) .scroll');
+    if (first) first.scrollTop = 0;
+  }
+
+  function goBack() {
+    if (state.screen === 'flatten' && state.flatten.pendingMode) { state.flatten.pendingMode = null; renderFlatten(); return; }
+    go(PARENT[state.screen] || 'home');
+  }
+
+  function renderSelection() {
+    var n = state.selection.count;
+    $('selText').textContent = n + ' selected';
+    $('selPill').classList.toggle('on', n > 0);
+  }
+
+  function onSelection(sel) {
+    state.selection = sel || { count: 0, names: [] };
+    renderSelection();
+    if (state.screen === 'renamer') refreshExample();
+    else if (state.screen === 'preview' && !state.applied) loadPreview(true);
+    else if (state.screen === 'flatten') {
+      var f = state.flatten;
+      f.pendingMode = null;
+      // keep the "done" message only while its result is still what is selected
+      if (f.result && f.result.selectionKey !== state.selection.key) f.result = null;
+      refreshSummary();
+    }
+  }
+
+  // ── Layer Renamer ───────────────────────────────────────────────────────
+
+  var saveTimer = null, exampleTimer = null, exampleSeq = 0;
+
+  function saveSettingsSoon() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(function () {
+      call('settings.save', { renamer: state.settings, flatten: { scale: state.flatten.scale } }).catch(function () { /* saving is best-effort */ });
+    }, 500);
+  }
+
+  function settingsChanged() {
+    $('rnError').hidden = true;
+    clearTimeout(exampleTimer);
+    exampleTimer = setTimeout(refreshExample, 120);
+    saveSettingsSoon();
+  }
+
+  function renderFields() {
+    var s = state.settings;
+    var wrap = clear($('rnFields'));
+    s.order.forEach(function (key, index) {
+      var on = !!s.enabled[key];
+      var input;
+      var extra = null;
+
+      if (key === 'page') {
+        input = h('select', { class: 'select', 'aria-label': 'Page name source', disabled: !on, onchange: function (e) {
+          s.pageSource = e.target.value; renderFields(); settingsChanged();
+        } },
+          h('option', { value: 'layer' }, 'Layer name'),
+          h('option', { value: 'custom' }, 'Custom text'));
+        input.value = s.pageSource;
+        if (s.pageSource === 'custom') {
+          extra = h('input', { class: 'input field-extra', type: 'text', value: s.page, placeholder: PLACEHOLDERS.page, 'aria-label': 'Page name', maxlength: 120, disabled: !on,
+            oninput: function (e) { s.page = e.target.value; settingsChanged(); } });
+        }
+      } else {
+        input = h('input', { class: 'input', type: 'text', value: s[key], placeholder: PLACEHOLDERS[key], 'aria-label': state.fields[key], maxlength: 120, disabled: !on,
+          list: key === 'phase' ? 'rnPhases' : null,
+          oninput: function (e) { s[key] = e.target.value; settingsChanged(); } });
+      }
+
+      var toggle = h('label', { class: 'switch', title: on ? 'Included in the name' : 'Left out of the name' },
+        h('input', { type: 'checkbox', checked: on, 'aria-label': 'Include ' + state.fields[key], onchange: function (e) {
+          s.enabled[key] = e.target.checked; renderFields(); settingsChanged();
+        } }), h('span'));
+
+      var move = h('span', { class: 'move' },
+        h('button', { class: 'icon-btn', type: 'button', icon: 'up', title: 'Move earlier', 'aria-label': 'Move ' + state.fields[key] + ' earlier', disabled: index === 0,
+          onclick: function () { swap(index, index - 1); } }),
+        h('button', { class: 'icon-btn', type: 'button', icon: 'down', title: 'Move later', 'aria-label': 'Move ' + state.fields[key] + ' later', disabled: index === s.order.length - 1,
+          onclick: function () { swap(index, index + 1); } }));
+
+      wrap.appendChild(h('div', { class: 'field' + (on ? '' : ' off'), 'data-key': key },
+        toggle, h('span', { class: 'field-label' }, state.fields[key]), input, move, extra));
+    });
+    if (!$('rnPhases')) {
+      document.body.appendChild(h('datalist', { id: 'rnPhases' },
+        ['Wireframe', 'Design', 'Revision', 'Final'].map(function (v) { return h('option', { value: v }); })));
+    }
+  }
+
+  function swap(a, b) {
+    var order = state.settings.order;
+    var t = order[a]; order[a] = order[b]; order[b] = t;
+    renderFields();
+    settingsChanged();
+  }
+
+  function setSeg(container, value) {
+    var buttons = container.querySelectorAll('button');
+    for (var i = 0; i < buttons.length; i++) {
+      var on = buttons[i].getAttribute('data-value') === String(value);
+      buttons[i].setAttribute('role', 'radio');
+      buttons[i].setAttribute('aria-checked', on ? 'true' : 'false');
+    }
+  }
+
+  function renderRenamerOptions() {
+    var s = state.settings;
+    $('rnCapitalize').checked = s.capitalize;
+    $('rnStripDate').checked = s.stripDate;
+    $('rnVersionPrefix').checked = s.versionPrefix;
+    $('rnNumber').checked = s.numberDuplicates;
+    $('rnResize').checked = s.resize;
+    $('rnResizeModes').hidden = !s.resize;
+    setSeg($('rnSeparator'), s.separator);
+    var radios = document.getElementsByName('rnResizeMode');
+    for (var i = 0; i < radios.length; i++) radios[i].checked = radios[i].value === s.resizeMode;
+    if (s.resize) $('rnAdvanced').open = true;
+  }
+
+  function refreshExample() {
+    if (!state.settings) return;
+    var mine = ++exampleSeq;
+    call('rename.preview', { settings: state.settings, limit: 1 }).then(function (p) {
+      if (mine !== exampleSeq) return;          // a newer request is on its way
+      var box = $('rnExample'), name = $('rnExampleName'), from = $('rnExampleFrom');
+      var btn = $('rnPreviewBtn');
+      if (p.error) {
+        box.classList.add('is-empty');
+        name.textContent = 'Add at least one field';
+        from.textContent = '';
+        btn.disabled = true;
+        btn.textContent = 'Preview changes';
+        return;
+      }
+      if (!p.counts.selected) {
+        box.classList.add('is-empty');
+        name.textContent = 'Select layers on the canvas';
+        from.textContent = 'The new name will show here as you type.';
+        btn.disabled = true;
+        btn.textContent = 'Select layers to rename';
+        return;
+      }
+      var row = p.rows[0];
+      box.classList.remove('is-empty');
+      name.textContent = row.proposed;
+      from.textContent = row.changed ? 'from “' + row.current + '”' : 'Already named this way';
+      btn.disabled = false;
+      btn.textContent = 'Preview ' + plural(p.counts.selected, 'layer');
+    }).catch(fail);
+  }
+
+  function loadPreview(silent) {
+    return call('rename.preview', { settings: state.settings }).then(function (p) {
+      if (p.error) { showRenamerError(p.error); if (state.screen === 'preview') go('renamer'); return; }
+      if (!p.counts.selected) {
+        if (state.screen === 'preview') { go('renamer'); toast('Selection cleared — select layers to rename.'); }
+        else showRenamerError('Select at least one layer on the canvas to rename.');
+        return;
+      }
+      state.preview = p;
+      state.applied = null;
+      state.previewNotice = silent ? 'Selection changed — the preview was updated.' : '';
+      if (state.screen !== 'preview') go('preview');
+      renderPreview();
+    }).catch(fail);
+  }
+
+  function showRenamerError(message) {
+    var box = clear($('rnError'));
+    box.appendChild(h('i', { icon: 'warn' }));
+    box.appendChild(h('div', { class: 'note-body' }, message));
+    box.hidden = false;
+    box.scrollIntoView({ block: 'nearest' });
+  }
+
+  function renderPreview() {
+    var p = state.preview, done = state.applied;
+    if (!p) return;
+    $('pvSelected').textContent = num(p.counts.selected);
+    $('pvRename').textContent = num(done ? done.renamed : p.counts.willRename);
+    $('pvRenameLabel').textContent = done ? 'Renamed' : 'Will rename';
+    $('pvUnchanged').textContent = num(done ? done.unchanged + done.failedCount : p.counts.unchanged);
+
+    var banner = clear($('pvBanner'));
+    if (done) {
+      var bits = [];
+      if (done.renamed) bits.push('Renamed ' + plural(done.renamed, 'layer') + '.');
+      else bits.push('No names needed changing.');
+      if (done.resizeRequested) bits.push('Resized ' + plural(done.resized, 'layer') + ' to 1600 px wide.');
+      bits.push('Undo with ⌘Z / Ctrl+Z.');
+      banner.appendChild(note('success', 'Done', [bits.join(' ')]));
+      if (done.failedCount) {
+        banner.appendChild(note('error', plural(done.failedCount, 'layer') + ' could not be renamed',
+          done.failed.map(function (f) { return f.name + ' — ' + f.reason; })));
+      }
+      if (done.resizeSkippedCount) {
+        banner.appendChild(note('warn', plural(done.resizeSkippedCount, 'layer') + ' kept their size',
+          done.resizeSkipped.map(function (f) { return f.name + ' — ' + f.reason; })));
+      }
+    } else {
+      if (state.previewNotice) banner.appendChild(note('info', '', [state.previewNotice]));
+      if (p.resize) {
+        banner.appendChild(note(p.counts.resizeSkipped ? 'warn' : 'info', '',
+          [plural(p.counts.willResize, 'layer') + ' will be resized to 1600 px wide' +
+            (p.counts.resizeSkipped ? '; ' + p.counts.resizeSkipped + ' can’t be resized.' : '.')]));
+      }
+      if (!p.counts.willRename && !(p.resize && p.counts.willResize)) {
+        banner.appendChild(note('info', 'Nothing to change', ['Every selected layer already has this name.']));
+      }
+    }
+    banner.style.display = banner.firstChild ? 'flex' : 'none';
+    banner.style.flexDirection = 'column';
+    banner.style.gap = '8px';
+
+    var failedNames = {};
+    if (done) done.failed.forEach(function (f) { failedNames[f.name] = true; });
+
+    var list = clear($('pvRows'));
+    p.rows.forEach(function (row) {
+      var meta = [];
+      if (!row.changed) meta.push(h('span', { class: 'tag' }, 'No change'));
+      if (!row.changed && row.note && row.note !== 'Already named this way') meta.push(h('span', null, row.note));
+      if (row.resize) meta.push(h('span', null, row.resize));
+      if (row.resizeNote && p.resize) meta.push(h('span', null, 'Size kept: ' + row.resizeNote));
+      var failed = done && row.changed && failedNames[row.current];
+      if (failed) meta.push(h('span', { class: 'tag' }, 'Not renamed'));
+
+      if (row.changed) {
+        list.appendChild(h('div', { class: 'row changed' + (done && !failed ? ' done' : '') },
+          h('div', { class: 'row-old' }, row.current),
+          h('div', { class: 'row-new' }, h('i', { icon: done && !failed ? 'check' : 'arrow' }), h('span', null, row.proposed)),
+          meta.length ? h('div', { class: 'row-meta' }, meta) : null));
+      } else {
+        list.appendChild(h('div', { class: 'row same' },
+          h('div', { class: 'row-new' }, h('span', null, row.current)),
+          h('div', { class: 'row-meta' }, meta)));
+      }
+    });
+    if (p.hiddenRows) list.appendChild(h('div', { class: 'more' }, 'and ' + num(p.hiddenRows) + ' more layers'));
+
+    var apply = $('pvApply'), edit = $('pvEdit');
+    setBusy(apply, false);
+    if (done) {
+      edit.textContent = 'Rename more';
+      apply.textContent = 'Done';
+      apply.disabled = false;
+    } else {
+      edit.textContent = 'Edit';
+      var nothing = !p.counts.willRename && !(p.resize && p.counts.willResize);
+      apply.textContent = p.counts.willRename ? 'Apply to ' + plural(p.counts.willRename, 'layer') : (nothing ? 'Nothing to apply' : 'Apply resize');
+      apply.disabled = nothing;
+    }
+  }
+
+  function applyRename() {
+    if (state.applied) { go('home'); return; }
+    var p = state.preview;
+    if (!p) return;
+    var btn = $('pvApply');
+    setBusy(btn, true, 'Applying…');
+    call('rename.apply', { settings: state.settings, expected: p.expected, flatten: { scale: state.flatten.scale } }).then(function (res) {
+      if (res.stale) {
+        state.preview = res.preview;
+        state.previewNotice = 'Some layers changed after this preview was made, so nothing was renamed. Check the updated names and apply again.';
+        renderPreview();
+        return;
+      }
+      state.applied = res;
+      state.previewNotice = '';
+      renderPreview();
+      document.querySelector('[data-screen="preview"] .scroll').scrollTop = 0;
+    }).catch(function (err) { setBusy(btn, false); renderPreview(); fail(err); });
+  }
+
+  // ── Flatten & Merge ─────────────────────────────────────────────────────
+
+  var summarySeq = 0;
+
+  function refreshSummary() {
+    var mine = ++summarySeq;
+    call('flatten.summary', { scale: state.flatten.scale }).then(function (s) {
+      if (mine !== summarySeq) return;
+      state.flatten.summary = s;
+      renderFlatten();
+    }).catch(fail);
+  }
+
+  function renderFlatten() {
+    var f = state.flatten, s = f.summary;
+    setSeg($('flScale'), f.scale);
+    var radios = document.getElementsByName('flOriginals');
+    for (var i = 0; i < radios.length; i++) radios[i].checked = (radios[i].value === 'replace') === f.replace;
+
+    var card = clear($('flSummary'));
+    var each = $('flEach'), merge = $('flMerge');
+    if (!f.busy) { setBusy(each, false); setBusy(merge, false); }
+
+    if (!s || !s.count) {
+      card.appendChild(h('div', { class: 'empty' }, h('b', null, 'Nothing selected'), h('span', null, 'Select one or more layers on the canvas to flatten.')));
+    } else if (!s.usable) {
+      card.appendChild(h('div', { class: 'card-head' }, h('h2', null, 'Selection')));
+      card.appendChild(note('warn', 'Nothing here can be flattened', s.skipped.map(function (k) { return k.name + ' — ' + k.reason; })));
+    } else {
+      var m = s.merged;
+      card.appendChild(h('div', { class: 'card-head' }, h('h2', null, 'Selection'), h('span', { class: 'hint' }, 'Rendered as PNG')));
+      card.appendChild(h('div', { class: 'kv' }, h('span', null, 'Layers'), h('span', { class: 'big' }, num(s.usable))));
+      card.appendChild(h('div', { class: 'kv' }, h('span', null, s.usable > 1 ? 'Combined size' : 'Size'), h('span', null, num(m.width) + ' × ' + num(m.height) + ' px')));
+      card.appendChild(h('div', { class: 'kv' }, h('span', null, (s.usable > 1 ? 'Merged output' : 'Output') + ' at ' + s.scale + '×'), h('span', null, num(m.pxWidth) + ' × ' + num(m.pxHeight) + ' px')));
+      if (m.tooLarge) {
+        card.appendChild(note('warn', 'Too large at ' + s.scale + '×', ['Lower the resolution to flatten this selection as one image.']));
+      } else if (m.tiles > 1) {
+        card.appendChild(note('info', '', ['Figma caps image fills at ' + num(s.maxImage) + ' px, so ' + (s.usable > 1 ? 'the merged image' : 'this') +
+          ' will be ' + m.tiles + ' seamless tiles in one group — full quality, nothing downscaled.']));
+      }
+      if (s.skippedCount) {
+        card.appendChild(note('warn', plural(s.skippedCount, 'layer') + ' will be skipped', s.skipped.map(function (k) { return k.name + ' — ' + k.reason; })));
+      }
+    }
+
+    var banner = clear($('flBanner'));
+    var r = f.result;
+    if (r) {
+      var title = r.mode === 'merge'
+        ? 'Merged ' + plural(r.sourceCount, 'layer') + ' into one image'
+        : 'Flattened ' + plural(r.createdCount, 'layer');
+      var lines = [];
+      lines.push(r.replaced ? plural(r.removed, 'original') + ' replaced.' : 'Originals untouched — the result is beside them and selected.');
+      if (r.tiled) lines.push('Large output was split into ' + r.tiles + ' seamless tiles and grouped.');
+      if (r.keptOriginals) lines.push(plural(r.keptOriginals, 'original') + ' could not be removed (for example inside an instance) and were kept.');
+      lines.push('Undo with ⌘Z / Ctrl+Z.');
+      banner.appendChild(note('success', title, [lines.join(' ')],
+        h('button', { class: 'btn small', type: 'button', onclick: function () { call('canvas.show', { ids: r.created }).catch(fail); } }, 'Show on canvas')));
+      if (r.failedCount) banner.appendChild(note('error', plural(r.failedCount, 'layer') + ' failed', r.failed.map(function (k) { return k.name + ' — ' + k.reason; })));
+    }
+
+    var usable = s ? s.usable : 0;
+    var confirming = !!f.pendingMode;
+    $('flActions').hidden = confirming;
+    $('flConfirm').hidden = !confirming;
+    if (confirming) {
+      $('flConfirmText').textContent = 'Replace ' + plural(usable, 'original layer') + ' with ' +
+        (f.pendingMode === 'merge' ? 'one merged image' : (usable === 1 ? 'a flattened image' : usable + ' flattened images')) +
+        '? The originals are removed once the image exists. You can undo this.';
+      $('flConfirmBtn').textContent = 'Replace ' + plural(usable, 'layer');
+    }
+    if (!f.busy) {
+      if (usable <= 1) {
+        each.hidden = false; merge.hidden = true;
+        each.className = 'btn primary grow';
+        each.textContent = usable ? 'Flatten to image' : 'Select layers to flatten';
+        each.disabled = !usable || (s.merged && s.merged.tooLarge);
+      } else {
+        each.hidden = false; merge.hidden = false;
+        each.className = 'btn grow';
+        each.textContent = 'Flatten each (' + usable + ')';
+        each.disabled = false;
+        merge.textContent = 'Merge into one';
+        merge.disabled = !!(s.merged && s.merged.tooLarge);
+      }
+    }
+  }
+
+  function startFlatten(mode) {
+    var f = state.flatten;
+    if (f.busy) return;
+    if (f.replace) { f.pendingMode = mode; renderFlatten(); return; }
+    runFlatten(mode, false);
+  }
+
+  function runFlatten(mode, confirmed) {
+    var f = state.flatten;
+    var btn = mode === 'merge' ? $('flMerge') : $('flEach');
+    f.busy = true;
+    f.pendingMode = null;
+    f.result = null;
+    renderFlatten();
+    $('flEach').disabled = true; $('flMerge').disabled = true;
+    setBusy(btn, true, mode === 'merge' ? 'Merging…' : 'Flattening…');
+    call('flatten.run', { mode: mode, scale: f.scale, replace: f.replace, confirmReplace: confirmed === true }).then(function (res) {
+      f.busy = false;
+      f.result = res;
+      setBusy(btn, false);
+      refreshSummary();
+    }).catch(function (err) {
+      f.busy = false;
+      setBusy(btn, false);
+      renderFlatten();
+      clear($('flBanner')).appendChild(note('error', 'Couldn’t flatten', [err.message]));
+    });
+  }
+
+  function onProgress(p) {
+    if (!state.flatten.busy || !p || p.total < 2 || p.done >= p.total) return;
+    var btn = document.querySelector('#flActions .btn.busy');
+    if (btn) btn.textContent = 'Flattening ' + (p.done + 1) + ' of ' + p.total + '…';
+  }
+
+  // ── Google Drive Links ──────────────────────────────────────────────────
+
+  function copyText(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.cssText = 'position:fixed;top:-1000px;left:0;opacity:0';
+    document.body.appendChild(ta);
+    ta.select();
+    var ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+    document.body.removeChild(ta);
+    return ok;
+  }
+
+  function copyLink(link) {
+    if (copyText(link.url)) toast('Link copied');
+    else toast('Couldn’t copy automatically — select the link text and copy it.', true);
+  }
+
+  function openLink(link) {
+    call('drive.open', { url: link.url }).then(function (res) {
+      if (!res.opened) window.open(res.url, '_blank', 'noopener');
+    }).catch(fail);
+  }
+
+  function scanDrive(announce) {
+    state.driveBusy = true;
+    renderDrive();
+    return call('drive.scan').then(function (d) {
+      state.drive = d;
+      state.driveBusy = false;
+      renderDrive();
+      if (announce) toast(d.pageFound ? plural(d.links.length, 'link') + ' found' : 'No “For Designers” page');
+    }).catch(function (err) { state.driveBusy = false; renderDrive(); fail(err); });
+  }
+
+  function renderDrive() {
+    var d = state.drive;
+    var status = clear($('drStatus'));
+    var list = clear($('drLinks'));
+    list.hidden = true;
+
+    if (!d) {
+      status.appendChild(h('div', { class: 'empty' }, h('span', null, 'Looking for links…')));
+      return;
+    }
+    var rescan = h('button', { class: 'icon-btn', type: 'button', icon: 'refresh', title: 'Rescan', 'aria-label': 'Rescan the page', disabled: state.driveBusy,
+      onclick: function () { scanDrive(true); } });
+
+    if (!d.pageFound) {
+      status.appendChild(h('div', { class: 'status' },
+        h('div', { class: 'status-text' }, h('b', null, 'No “For Designers” page'), h('small', null, 'This file doesn’t have one yet.')), rescan));
+      status.appendChild(h('button', { class: 'btn block', type: 'button', onclick: function (e) {
+        setBusy(e.currentTarget, true, 'Creating…');
+        call('drive.createPage').then(function (res) { state.drive = res; renderDrive(); toast('Page created'); }).catch(function (err) { renderDrive(); fail(err); });
+      } }, 'Create “For Designers” page'));
+      $('drAddText').textContent = 'Create page & add link';
+      return;
+    }
+
+    $('drAddText').textContent = 'Add link';
+    var count = d.links.length;
+    status.appendChild(h('div', { class: 'status' },
+      h('div', { class: 'status-text' },
+        h('b', null, count ? plural(count, 'link') + ' found' : 'No Drive links yet'),
+        h('small', null, 'On the “' + d.pageName + '” page')),
+      d.isCurrentPage ? null : h('button', { class: 'icon-btn', type: 'button', icon: 'locate', title: 'Go to the page', 'aria-label': 'Go to the page',
+        onclick: function () { call('drive.goto', {}).then(function () { scanDrive(); }).catch(fail); } }),
+      rescan));
+
+    if (!count) {
+      status.appendChild(note('info', '', ['No Google Drive or Google Docs hyperlinks were found on this page. Add one below.']));
+      return;
+    }
+
+    status.appendChild(h('div', { class: 'quick' },
+      h('button', { class: 'btn small', type: 'button', onclick: function () { copyLink(d.links[0]); } }, h('i', { icon: 'copy' }), 'Copy first'),
+      h('button', { class: 'btn small', type: 'button', onclick: function () { openLink(d.links[0]); } }, h('i', { icon: 'open' }), 'Open first')));
+
+    list.hidden = false;
+    d.links.forEach(function (link) {
+      list.appendChild(h('div', { class: 'row link-row' },
+        h('div', { class: 'link-main' },
+          h('div', { class: 'link-top' },
+            h('span', { class: 'tag accent' }, link.kind),
+            h('span', { class: 'link-label', title: link.label }, link.label),
+            link.source === 'text' ? h('span', { class: 'tag', title: 'Found as plain text, not a clickable hyperlink' }, 'Plain text') : null,
+            link.count > 1 ? h('span', { class: 'tag', title: 'Appears ' + link.count + ' times on the page' }, '×' + link.count) : null),
+          h('div', { class: 'link-url', title: link.url }, link.url.replace(/^https:\/\//, ''))),
+        h('div', { class: 'link-btns' },
+          h('button', { class: 'icon-btn', type: 'button', icon: 'locate', title: 'Show on canvas', 'aria-label': 'Show ' + link.label + ' on canvas',
+            onclick: function () { call('drive.goto', { nodeId: link.nodeId }).then(function () { if (state.drive) { state.drive.isCurrentPage = true; renderDrive(); } }).catch(fail); } }),
+          h('button', { class: 'icon-btn', type: 'button', icon: 'copy', title: 'Copy link', 'aria-label': 'Copy ' + link.label, onclick: function () { copyLink(link); } }),
+          h('button', { class: 'icon-btn', type: 'button', icon: 'open', title: 'Open in browser', 'aria-label': 'Open ' + link.label, onclick: function () { openLink(link); } }))));
+    });
+  }
+
+  function addLink() {
+    var url = $('drUrl').value, label = $('drLabel').value;
+    var errBox = $('drError'), btn = $('drAdd');
+    errBox.hidden = true;
+    $('drUrl').classList.remove('invalid');
+    btn.disabled = true;
+    call('drive.add', { url: url, label: label, createPage: !!(state.drive && !state.drive.pageFound) }).then(function (res) {
+      btn.disabled = false;
+      state.drive = res;
+      $('drUrl').value = '';
+      $('drLabel').value = '';
+      renderDrive();
+      toast('Link added');
+    }).catch(function (err) {
+      btn.disabled = false;
+      clear(errBox);
+      errBox.appendChild(h('i', { icon: 'warn' }));
+      errBox.appendChild(h('div', { class: 'note-body' }, err.message));
+      errBox.hidden = false;
+      $('drUrl').classList.add('invalid');
+    });
+  }
+
+  // ── Check for updates ───────────────────────────────────────────────────
+
+  function fetchVersionFile(url) {
+    // Only used when the plugin side has no fetch of its own.
+    return fetch(url + '?t=' + Date.now(), { cache: 'no-store' }).then(function (r) {
+      if (r.status === 404) throw new Error('No version information was found. The repository may be private, or version.json is missing from it.');
+      if (!r.ok) throw new Error('GitHub answered with an error (' + r.status + '). Try again in a few minutes.');
+      return r.text();
+    }, function () {
+      throw new Error('Couldn\u2019t reach GitHub to check for updates. Check your internet connection and try again.');
+    });
+  }
+
+  function checkUpdates() {
+    var btn = $('updCheck');
+    if (state.updateBusy) return;
+    state.updateBusy = true;
+    btn.disabled = true;
+    btn.textContent = 'Checking\u2026';
+    var finish = function () { state.updateBusy = false; btn.disabled = false; btn.textContent = 'Check for updates'; };
+    call('update.check').then(function (res) {
+      if (res && res.fetchInUi) {
+        return fetchVersionFile(res.url).then(function (text) { return call('update.check', { text: text }); });
+      }
+      return res;
+    }).then(function (res) {
+      finish();
+      state.update = res;
+      state.updateDismissed = false;
+      renderUpdate();
+      if (res.updateAvailable) { $('toast').hidden = true; $('updBox').scrollIntoView({ block: 'nearest' }); }
+      else if (res.ahead) toast('You\u2019re on v' + res.current + ', newer than the published v' + res.latest + '.');
+      else toast('You\u2019re up to date (v' + res.current + ').');
+    }).catch(function (err) { finish(); fail(err); });
+  }
+
+  function openUpdate(which, url) {
+    call('update.open', { which: which, url: url }).then(function (res) {
+      if (!res.opened) window.open(res.url, '_blank', 'noopener');
+    }).catch(fail);
+  }
+
+  function renderUpdate() {
+    var box = clear($('updBox'));
+    var u = state.update;
+    if (!u || !u.updateAvailable || state.updateDismissed) { box.hidden = true; return; }
+    var extra = h('div', { class: 'note-body' },
+      h('p', null, 'You have v' + u.current + '.' + (u.released ? ' Released ' + u.released + '.' : '')),
+      u.notes.length ? h('ul', null, u.notes.map(function (n) { return h('li', null, n); })) : null,
+      h('p', null, 'Figma plugins can\u2019t replace their own files, so install it outside Figma: run the update script in the plugin folder (or pull the repository), then run UtilityKit again.'),
+      h('div', { class: 'note-btns' },
+        h('button', { class: 'btn small primary', type: 'button', onclick: function () { openUpdate('download', u.downloadUrl); } }, 'Download update'),
+        h('button', { class: 'btn small', type: 'button', onclick: function () { openUpdate('page', u.pageUrl); } }, 'View on GitHub'),
+        h('button', { class: 'btn small', type: 'button', onclick: function () { state.updateDismissed = true; renderUpdate(); } }, 'Later')));
+    box.appendChild(note('info', 'Version ' + u.latest + ' is available', [], extra));
+    box.hidden = false;
+  }
+
+  // ── wiring ──────────────────────────────────────────────────────────────
+
+  function bind() {
+    $('back').addEventListener('click', goBack);
+    $('updCheck').addEventListener('click', checkUpdates);
+    var tools = document.querySelectorAll('[data-go]');
+    for (var i = 0; i < tools.length; i++) {
+      tools[i].addEventListener('click', function (e) { go(e.currentTarget.getAttribute('data-go')); });
+    }
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && state.screen !== 'home') { e.preventDefault(); goBack(); }
+    });
+
+    // renamer
+    var flags = { rnCapitalize: 'capitalize', rnStripDate: 'stripDate', rnVersionPrefix: 'versionPrefix', rnNumber: 'numberDuplicates', rnResize: 'resize' };
+    Object.keys(flags).forEach(function (id) {
+      $(id).addEventListener('change', function (e) {
+        state.settings[flags[id]] = e.target.checked;
+        renderRenamerOptions();
+        settingsChanged();
+      });
+    });
+    $('rnSeparator').addEventListener('click', function (e) {
+      var b = e.target.closest('button');
+      if (!b) return;
+      state.settings.separator = b.getAttribute('data-value');
+      renderRenamerOptions();
+      settingsChanged();
+    });
+    var modes = document.getElementsByName('rnResizeMode');
+    for (var m = 0; m < modes.length; m++) {
+      modes[m].addEventListener('change', function (e) { state.settings.resizeMode = e.target.value; settingsChanged(); });
+    }
+    $('rnPreviewBtn').addEventListener('click', function () { loadPreview(false); });
+    $('pvEdit').addEventListener('click', function () { go('renamer'); });
+    $('pvApply').addEventListener('click', applyRename);
+
+    // flatten
+    $('flScale').addEventListener('click', function (e) {
+      var b = e.target.closest('button');
+      if (!b || state.flatten.busy) return;
+      state.flatten.scale = Number(b.getAttribute('data-value'));
+      state.flatten.pendingMode = null;
+      state.flatten.result = null;
+      saveSettingsSoon();
+      refreshSummary();
+    });
+    var originals = document.getElementsByName('flOriginals');
+    for (var o = 0; o < originals.length; o++) {
+      originals[o].addEventListener('change', function (e) {
+        state.flatten.replace = e.target.value === 'replace';
+        state.flatten.pendingMode = null;
+        renderFlatten();
+      });
+    }
+    $('flEach').addEventListener('click', function () { startFlatten('each'); });
+    $('flMerge').addEventListener('click', function () { startFlatten('merge'); });
+    $('flCancel').addEventListener('click', function () { state.flatten.pendingMode = null; renderFlatten(); });
+    $('flConfirmBtn').addEventListener('click', function () { runFlatten(state.flatten.pendingMode, true); });
+
+    // drive
+    $('drAdd').addEventListener('click', addLink);
+    var onEnter = function (e) { if (e.key === 'Enter') { e.preventDefault(); addLink(); } };
+    $('drUrl').addEventListener('keydown', onEnter);
+    $('drLabel').addEventListener('keydown', onEnter);
+    $('drUrl').addEventListener('input', function () { $('drUrl').classList.remove('invalid'); $('drError').hidden = true; });
+
+    // resize grip
+    var grip = $('grip'), drag = null, raf = 0;
+    grip.addEventListener('pointerdown', function (e) {
+      drag = { x: e.clientX, y: e.clientY, w: window.innerWidth, h: window.innerHeight };
+      grip.setPointerCapture(e.pointerId);
+    });
+    grip.addEventListener('pointermove', function (e) {
+      if (!drag) return;
+      var w = drag.w + (e.clientX - drag.x), ht = drag.h + (e.clientY - drag.y);
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(function () { call('ui.resize', { width: w, height: ht }).catch(function () {}); });
+    });
+    var end = function () { drag = null; };
+    grip.addEventListener('pointerup', end);
+    grip.addEventListener('pointercancel', end);
+  }
+
+  function start() {
+    paintIcons();
+    bind();
+    renderSelection();
+    call('init').then(function (data) {
+      state.settings = data.settings.renamer;
+      state.flatten.scale = data.settings.flatten.scale;
+      state.fields = data.fields || state.fields;
+      state.selection = data.selection;
+      $('version').textContent = 'v' + data.version;
+      $('rnResizeW').textContent = data.resizeWidth;
+      renderSelection();
+      renderFields();
+      renderRenamerOptions();
+    }).catch(fail);
+  }
+
+  start();
+})();
+</script>
+</body>
+</html>

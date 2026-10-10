@@ -1,0 +1,10 @@
+{
+  "name": "utilitykit",
+  "version": "1.1.0",
+  "description": "UtilityKit by CT Designers — Figma plugin: Layer Renamer, Flatten & Merge, Google Drive Links.",
+  "private": true,
+  "scripts": {
+    "build": "node build.js",
+    "test": "node build.js && node --test test/*.test.js"
+  }
+}
