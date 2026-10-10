@@ -1,10 +1,10 @@
 # UtilityKit
 
-A Figma plugin · v1.3.1
+A Figma plugin · v1.4.0
 
 Three everyday helpers in one small window:
 
-- **Layer Renamer** — rename many layers at once in a tidy, consistent format.
+- **Layer Renamer** — name frames the way the team guideline asks, in one go.
 - **Flatten & Merge** — turn selected layers into an image.
 - **Google Drive Links** — find the project's Drive links in one click.
 
@@ -28,39 +28,54 @@ Each person installs it once on their own computer.
 
 ## Layer Renamer
 
-Renames layers like this: `Home - Design - Acme - V1`
+Names your frames the way the team guideline asks, with no spaces or symbols.
 
-1. Select the layers or frames you want to rename.
-2. Fill in the boxes:
-   - **Page** — uses each layer's current name. Choose *Custom text* if every layer should get the same page name.
-   - **Design Phase**, **Client**, **Version** — type these once; they are added to every layer.
-3. The **Live preview** shows the new name as you type.
-4. Press **Preview** to see every old name next to its new name.
+**Web:** `PageType_Device_DesignPhase_ClientName_V1R1`
+Example: `Homepage_Desktop_Mockups_AllfitAutomotiveAndParts_V1`
+
+**Marketing:** `Size_DeliverableType_SpecificTask_ClientName_V1R1_Variation`
+Example: `1080x1080_MetaAds_BlackFriday_AllfitAutomotiveAndParts_V1`
+
+How to use it:
+
+1. Go to the right page in Figma and select the frames to rename.
+2. Choose **Web** or **Marketing** at the top.
+3. Fill in the boxes (see below). The **Live preview** shows the new name as you go.
+4. Press **Preview** to see every old name next to its new one.
 5. Press **Apply**.
+
+What the plugin fills in for you:
+
+| Part | Where it comes from |
+|---|---|
+| **Page type** | The name of the Figma page you are on. `2026-05 - Homepage` becomes `Homepage`. You can type over it. |
+| **Device** (Web) | The frame's width: 1600 px is `Desktop`, 320 px is `Mobile`. Any other width gets no tag, and the preview points it out. |
+| **Size** (Marketing) | The frame's size, such as `1080x1080`. For video work in a standard size it uses the short codes V, H, P and S. You can switch the size off. |
+| **Version** | Several frames with the same name are numbered left to right: `V1`, `V2`, `V3`. Desktop and Mobile are counted separately. |
+
+What you fill in:
+
+- **Design phase** (Web) — None, Wireframes or Mockups.
+- **Deliverable**, **Specific task**, **Variation** (Marketing) — for example `MetaAds`, `BlackFriday`, `A`.
+- **Client** — always needed. Type it normally; the plugin tidies it: `All-fit Automotive & Parts` becomes `AllfitAutomotiveAndParts`.
+
+Versions and revisions:
+
+| Choice | What it does |
+|---|---|
+| Version: **Automatic** | Frames that already have a version keep it. New frames get the next free number. Moving frames around never changes their versions. |
+| Version: **Next version (+1)** | Every frame moves up one (`V1` to `V2`) and starts again without a revision. |
+| Version: **Start at…** | Numbers the frames again from the number you type. |
+| Revision: **Keep as it is** | Leaves the revision alone. |
+| Revision: **Next revision (+1)** | `V1` becomes `V1R1`, `V1R1` becomes `V1R2`. |
+| Revision: **No revision** / **Set to…** | Removes the revision, or sets it to the number you type. |
 
 Good to know:
 
 - Nothing changes until you press **Apply**. To undo, press ⌘Z (Mac) or Ctrl+Z (Windows).
-- Leave a box empty, or switch it off, and that part is simply left out of the name.
-- Use the small arrows to change the order of the parts.
-- You can run it again on the same layers. The parts are not added twice. Change the version from 1 to 2 and `V1` becomes `V2`.
-
-It also cleans names up for you:
-
-| What it does | Before | After |
-|---|---|---|
-| Removes a date at the start | `2026-05 - home page` | `Home Page` |
-| Capitalizes each word | `landing page` | `Landing Page` |
-| Fixes extra spaces and underscores | `home_page  ` | `Home Page` |
-| Writes versions the same way | `1`, `v1`, `version 1` | `V1` |
-
-Under **Advanced** you can also:
-
-- Change the divider between parts (` - `, ` | `, ` / ` or `_`).
-- Add numbers when several layers end up with the same name (`01`, `02`…).
-- **Resize layers to 1600 px wide.** *Scale proportionally* keeps the shape and scales everything inside. *Width only* changes just the width.
-
-The plugin remembers your choices for next time. It also remembers the Client, Design Phase and Version for each Figma file, so every project opens with its own client name.
+- The frame's old name is not used, apart from a version it already has. The rest comes from the page name, the frame's size and what you typed.
+- **Resize** (Web) can set frames to **Desktop 1600** or **Mobile 320** wide as it renames. It only changes frames, never text or shapes.
+- The plugin remembers your choices. It also remembers the client for each Figma file, so every project opens with its own client name.
 
 ---
 
@@ -181,6 +196,6 @@ After a few minutes, everyone who presses **Check for updates** sees the new ver
 
 **Checks**
 
-- `npm test` runs 60 automatic checks of the renaming rules, flattening, Drive links and updating.
+- `npm test` runs 59 automatic checks of the renaming rules, flattening, Drive links and updating.
 - `python3 test/e2e.py` clicks through every screen in a pretend Figma (needs Playwright).
 - These run outside Figma, so also try a new version in Figma itself on a spare file before sharing it.

@@ -43,7 +43,7 @@ def run():
         ev = page.evaluate
 
         # ── Home ──
-        expect(ui.locator("#version")).to_have_text("v1.3.1")
+        expect(ui.locator("#version")).to_have_text("v1.4.0")
         expect(ui.locator("#selText")).to_have_text("0 selected")
         shot("01-home")
 
@@ -57,14 +57,14 @@ def run():
         expect(ui.locator("#toast")).to_contain_text("Couldn’t reach GitHub")
         ev("window.__versionJson = JSON.stringify({ version: UK.VERSION })")
         ui.locator("#updCheck").click()
-        expect(ui.locator("#toast")).to_have_text("You’re up to date (v1.3.1).")
+        expect(ui.locator("#toast")).to_have_text("You’re up to date (v1.4.0).")
         expect(ui.locator("#updBox")).to_be_hidden()
         ev("""window.__versionJson = JSON.stringify({ version: '9.9.0', released: '2026-11-02',
               notes: ['New: Export presets.', 'Fix: renaming inside instances.'],
               download: 'https://evil.example.com/malware.zip' })""")
         ui.locator("#updCheck").click()
         expect(ui.locator("#updBox")).to_contain_text("Version 9.9.0 is available")
-        expect(ui.locator("#updBox")).to_contain_text("You have v1.3.1. Released 2026-11-02.")
+        expect(ui.locator("#updBox")).to_contain_text("You have v1.4.0. Released 2026-11-02.")
         expect(ui.locator("#updBox li")).to_have_count(2)
         expect(ui.locator("#updCheck")).to_have_text("Check for updates")
         expect(ui.locator('#updBox [data-act="install"]')).to_have_text("Update now")
@@ -82,7 +82,7 @@ def run():
         ui.locator("#openSettings").click()
         expect(ui.locator("#title")).to_have_text("Settings")
         expect(ui.locator("#openSettings")).to_be_hidden()
-        expect(ui.locator("#stVersion")).to_have_text("Installed: v1.3.1")
+        expect(ui.locator("#stVersion")).to_have_text("Installed: v1.4.0")
         expect(ui.locator("#stRemove")).to_be_hidden()
         expect(ui.locator("#stUpdBox")).to_be_hidden()               # "Later" was pressed on Home
         ev("window.__versionJson = JSON.stringify({ version: '3.0.0', notes: ['New: something.'] })")
@@ -100,71 +100,114 @@ def run():
         expect(ui.locator("#openSettings")).to_be_visible()
 
         # ── Layer Renamer ──
+        CLIENT = "All-fit Automotive & Parts"
         ui.locator('[data-go="renamer"]').click()
         expect(ui.locator("#rnPreviewBtn")).to_be_disabled()
-        expect(ui.locator("#rnExampleName")).to_have_text("Select layers on the canvas")
-        ev("env.select([demo.a, demo.b, demo.c])")
+        expect(ui.locator("#rnExampleName")).to_have_text("Select frames on the canvas")
+        expect(ui.locator("#rnPageHint")).to_contain_text("“2026-05 - Homepage”")       # read from the Figma page
+        expect(ui.locator("#rnPageType")).to_have_value("Homepage")
+        ev("env.select([demo.m1, demo.d2, demo.d1])")
         expect(ui.locator("#selText")).to_have_text("3 selected")
-        ui.locator('[data-key="phase"] input.input').fill("design")
-        ui.locator('[data-key="client"] input.input').fill("acme corp")
-        ui.locator('[data-key="version"] input.input').fill("1")
-        expect(ui.locator("#rnExampleName")).to_have_text("Home Page - Design - Acme Corp - V1")
+        expect(ui.locator("#rnExampleName")).to_have_text("Add the client name.")        # required by the guideline
+        expect(ui.locator("#rnPreviewBtn")).to_be_disabled()
+        expect(ui.locator("#rnDevices")).to_have_text("2 Desktop · 1 Mobile")
+        ui.locator("#rnClient").fill(CLIENT)
+        expect(ui.locator("#rnExampleName")).to_have_text("Homepage_Desktop_AllfitAutomotiveAndParts_V1")
+        ui.locator('#rnPhase [data-value="Mockups"]').click()
+        expect(ui.locator("#rnExampleName")).to_have_text("Homepage_Desktop_Mockups_AllfitAutomotiveAndParts_V1")
         expect(ui.locator("#rnPreviewBtn")).to_have_text("Preview 3 layers")
         shot("02-renamer")
 
-        # reorder + switch off + separator all feed the live preview
-        ui.locator('[data-key="client"] button[title="Move earlier"]').click()
-        ui.locator('[data-key="client"] button[title="Move earlier"]').click()
-        expect(ui.locator("#rnExampleName")).to_have_text("Acme Corp - Home Page - Design - V1")
-        ui.locator('[data-key="phase"] .switch').click()
-        expect(ui.locator("#rnExampleName")).to_have_text("Acme Corp - Home Page - V1")
-        ui.locator("#rnAdvanced summary").click()
-        ui.locator('#rnSeparator [data-value="pipe"]').click()
-        expect(ui.locator("#rnExampleName")).to_have_text("Acme Corp | Home Page | V1")
-        shot("03-renamer-advanced")
-        # put it back
-        ui.locator('#rnSeparator [data-value="dash"]').click()
-        ui.locator('[data-key="phase"] .switch').click()
-        ui.locator('[data-key="client"] button[title="Move later"]').click()
-        ui.locator('[data-key="client"] button[title="Move later"]').click()
-        expect(ui.locator("#rnExampleName")).to_have_text("Home Page - Design - Acme Corp - V1")
+        # the page type can be typed over, and goes back to the page's name when cleared
+        ui.locator("#rnPageType").fill("category page")
+        expect(ui.locator("#rnExampleName")).to_have_text("CategoryPage_Desktop_Mockups_AllfitAutomotiveAndParts_V1")
+        ui.locator("#rnPageType").fill("")
+        expect(ui.locator("#rnExampleName")).to_have_text("Homepage_Desktop_Mockups_AllfitAutomotiveAndParts_V1")
+        ui.locator("#rnClient").click()                                         # leaving the box puts the page's name back
+        expect(ui.locator("#rnPageType")).to_have_value("Homepage")
 
-        # all fields off -> blocked with a reason
-        for key in ["page", "phase", "client", "version"]:
-            ui.locator(f'[data-key="{key}"] .switch').click()
-        expect(ui.locator("#rnExampleName")).to_have_text("Add at least one field")
-        expect(ui.locator("#rnPreviewBtn")).to_be_disabled()
-        for key in ["page", "phase", "client", "version"]:
-            ui.locator(f'[data-key="{key}"] .switch').click()
+        # version choices
+        expect(ui.locator("#rnVersionValue")).to_be_hidden()
+        ui.locator("#rnVersionMode").select_option("set")
+        ui.locator("#rnVersionValue").fill("3")
+        expect(ui.locator("#rnExampleName")).to_have_text("Homepage_Desktop_Mockups_AllfitAutomotiveAndParts_V3")
+        expect(ui.locator("#rnVersionHelp")).to_contain_text("starting at V3")
+        ui.locator("#rnRevisionMode").select_option("set")
+        ui.locator("#rnRevisionValue").fill("2")
+        expect(ui.locator("#rnExampleName")).to_have_text("Homepage_Desktop_Mockups_AllfitAutomotiveAndParts_V3R2")
+        ui.locator("#rnVersionMode").select_option("auto")
+        ui.locator("#rnRevisionMode").select_option("keep")
+        expect(ui.locator("#rnExampleName")).to_have_text("Homepage_Desktop_Mockups_AllfitAutomotiveAndParts_V1")
+
+        # Marketing: size is read from the frame
+        ui.locator('#rnMode [data-value="marketing"]').click()
+        expect(ui.locator("#rnWeb")).to_be_hidden()
+        expect(ui.locator("#rnAdvanced")).to_be_hidden()
+        expect(ui.locator("#rnExampleName")).to_have_text("Add the deliverable type, for example MetaAds.")
+        ui.locator("#rnDeliverable").fill("Meta Ads")
+        ui.locator("#rnTask").fill("the black friday sale")
+        expect(ui.locator("#rnExampleName")).to_have_text("1600x3000_MetaAds_BlackFridaySale_AllfitAutomotiveAndParts_V1")
+        ui.locator("#rnVariation").fill("b")
+        expect(ui.locator("#rnExampleName")).to_have_text("1600x3000_MetaAds_BlackFridaySale_AllfitAutomotiveAndParts_V1_B")
+        ui.locator("#rnIncludeSize").uncheck(force=True)
+        expect(ui.locator("#rnExampleName")).to_have_text("MetaAds_BlackFridaySale_AllfitAutomotiveAndParts_V1_B")
+        shot("03-renamer-marketing")
+        ui.locator("#rnIncludeSize").check(force=True)
+        ui.locator("#rnVariation").fill("")
+        ui.locator('#rnMode [data-value="web"]').click()
+        expect(ui.locator("#rnExampleName")).to_have_text("Homepage_Desktop_Mockups_AllfitAutomotiveAndParts_V1")
 
         # ── Rename Preview ──
         ui.locator("#rnPreviewBtn").click()
         expect(ui.locator("#title")).to_have_text("Rename Preview")
         expect(ui.locator("#pvSelected")).to_have_text("3")
-        expect(ui.locator("#pvRename")).to_have_text("2")
-        expect(ui.locator("#pvUnchanged")).to_have_text("1")
-        expect(ui.locator("#pvApply")).to_have_text("Apply to 2 layers")
-        assert ev("demo.a.name") == "2026-05 - home page", "preview must not rename"
+        expect(ui.locator("#pvRename")).to_have_text("3")
+        expect(ui.locator("#pvUnchanged")).to_have_text("0")
+        expect(ui.locator("#pvApply")).to_have_text("Apply to 3 layers")
+        expect(ui.locator("#pvRows .row-new span")).to_have_text([
+            "Homepage_Desktop_Mockups_AllfitAutomotiveAndParts_V1",
+            "Homepage_Desktop_Mockups_AllfitAutomotiveAndParts_V2",
+            "Homepage_Mobile_Mockups_AllfitAutomotiveAndParts_V1"])            # numbered left to right, per device
+        assert ev("demo.d1.name") == "Frame 1", "preview must not rename"
         shot("04-preview")
 
         # selection changes while previewing -> preview follows it
-        ev("env.select([demo.a, demo.b])")
+        ev("env.select([demo.d1, demo.d2])")
         expect(ui.locator("#pvSelected")).to_have_text("2")
-        ev("env.select([demo.a, demo.b, demo.c])")
+        ev("env.select([demo.m1, demo.d2, demo.d1])")
         expect(ui.locator("#pvSelected")).to_have_text("3")
 
         ui.locator("#pvApply").click()
         expect(ui.locator("#pvRenameLabel")).to_have_text("Renamed")
         expect(ui.locator("#pvApply")).to_have_text("Done")
-        assert ev("[demo.a.name, demo.b.name, demo.c.name]") == [
-            "Home Page - Design - Acme Corp - V1", "Pricing Page - Design - Acme Corp - V1", "About - Design - Acme Corp - V1"]
+        assert ev("[demo.d1.name, demo.d2.name, demo.m1.name]") == [
+            "Homepage_Desktop_Mockups_AllfitAutomotiveAndParts_V1",
+            "Homepage_Desktop_Mockups_AllfitAutomotiveAndParts_V2",
+            "Homepage_Mobile_Mockups_AllfitAutomotiveAndParts_V1"]
         shot("05-preview-applied")
         ui.locator("#pvApply").click()
         expect(ui.locator("#brand")).to_be_visible()
 
         # settings were saved and come back
-        assert ev("JSON.parse(env.storage['utilitykit.settings.v1']).renamer.client") == "acme corp"
-        assert ev("JSON.parse(figma.root.getPluginData('utilitykit.file.v1')).client") == "acme corp"
+        assert ev("JSON.parse(env.storage['utilitykit.settings.v1']).renamer.client") == CLIENT
+        assert ev("JSON.parse(figma.root.getPluginData('utilitykit.file.v1')).client") == CLIENT
+
+        # a small change later: next revision keeps every frame's version
+        ui.locator('[data-go="renamer"]').click()
+        expect(ui.locator("#rnExampleFrom")).to_have_text("Already named this way")
+        ui.locator("#rnRevisionMode").select_option("next")
+        expect(ui.locator("#rnExampleName")).to_have_text("Homepage_Desktop_Mockups_AllfitAutomotiveAndParts_V1R1")
+        ui.locator("#rnPreviewBtn").click()
+        ui.locator("#pvApply").click()
+        expect(ui.locator("#pvRenameLabel")).to_have_text("Renamed")
+        assert ev("[demo.d1.name, demo.d2.name, demo.m1.name]") == [
+            "Homepage_Desktop_Mockups_AllfitAutomotiveAndParts_V1R1",
+            "Homepage_Desktop_Mockups_AllfitAutomotiveAndParts_V2R1",
+            "Homepage_Mobile_Mockups_AllfitAutomotiveAndParts_V1R1"]
+        ui.locator("#pvEdit").click()                                           # "Rename more"
+        expect(ui.locator("#rnRevisionMode")).to_have_value("keep")             # the +1 does not stay armed
+        expect(ui.locator("#rnExampleFrom")).to_have_text("Already named this way")
+        ui.locator("#back").click()
 
         # ── Settings: reset, opened from inside a utility, and Back returns there ──
         ui.locator('[data-go="renamer"]').click()
@@ -172,19 +215,20 @@ def run():
         ui.locator("#stReset").click()
         expect(ui.locator("#stResetConfirm")).to_be_visible()
         ui.locator("#stResetCancel").click()
-        assert ev("JSON.parse(env.storage['utilitykit.settings.v1']).renamer.client") == "acme corp", "cancel changes nothing"
+        assert ev("JSON.parse(env.storage['utilitykit.settings.v1']).renamer.client") == CLIENT, "cancel changes nothing"
         ui.locator("#stReset").click()
         shot("01d-settings-reset")
         ui.locator("#stResetYes").click()
         expect(ui.locator("#toast")).to_have_text("Settings reset to defaults")
         assert ev("JSON.parse(env.storage['utilitykit.settings.v1']).renamer.client") == ""
-        assert ev("JSON.parse(figma.root.getPluginData('utilitykit.file.v1')).client") == "acme corp", "the file keeps its own client"
+        assert ev("JSON.parse(figma.root.getPluginData('utilitykit.file.v1')).client") == CLIENT, "the file keeps its own client"
         ui.locator("#back").click()
         expect(ui.locator("#title")).to_have_text("Layer Renamer")
-        expect(ui.locator('[data-key="client"] input.input')).to_have_value("")
+        expect(ui.locator("#rnClient")).to_have_value("")
         ui.locator("#back").click()
 
         # ── Flatten & Merge ──
+        ev("env.select([demo.a, demo.b, demo.c])")
         ui.locator('[data-go="flatten"]').click()
         expect(ui.locator("#flMerge")).to_be_visible()
         expect(ui.locator("#flEach")).to_have_text("Flatten each (3)")
@@ -242,7 +286,7 @@ def run():
         ui.locator("#drUrl").press("Enter")
         expect(ui.locator("#drStatus")).to_contain_text("2 links found")
         expect(ui.locator("#drLinks .link-label").nth(1)).to_have_text("Creative brief")
-        assert ev("figma.root.children.map(p => p.name)") == ["Page 1", "For Designers"]
+        assert ev("figma.root.children.map(p => p.name)") == ["2026-05 - Homepage", "For Designers"]
         shot("11-drive-links")
         ui.locator("#drStatus .quick .btn").nth(1).click()          # Open first
         page.wait_for_function("env.log.opened.length === 1")
@@ -258,10 +302,11 @@ def run():
         ui.locator("#back").click()
 
         # ── narrow window + dark theme ──
-        ev("env.select([demo.c])")
+        ev("env.select([demo.d1])")
         page.set_viewport_size({"width": 300, "height": 560})
         ui.locator('[data-go="renamer"]').click()
-        expect(ui.locator("#rnExampleName")).to_have_text("About - Design - Acme Corp - V1")
+        ui.locator("#rnClient").fill("Acme")
+        expect(ui.locator("#rnExampleName")).to_have_text("Homepage_Desktop_Acme_V1R1")
         shot("12-renamer-narrow")
         overflow = page.frames[1].evaluate("document.documentElement.scrollWidth > document.documentElement.clientWidth")
         assert not overflow, "no horizontal scroll at 300px"
@@ -287,7 +332,7 @@ def run():
         expect(ui.locator("#toast")).to_contain_text("still being published")
         expect(ui.locator('#updBox [data-act="install"]')).to_have_text("Update now")
         assert saved() is None
-        expect(ui.locator("#version")).to_have_text("v1.3.1")
+        expect(ui.locator("#version")).to_have_text("v1.4.0")
 
         # the real thing
         ev(load_release, release("9.9.0", "UPDATED BUILD 9.9.0"))
@@ -303,7 +348,7 @@ def run():
         ev("env.select([demo.c])")
         expect(ui.locator("#selText")).to_have_text("1 selected")
         ui.locator('[data-go="renamer"]').click()
-        expect(ui.locator("#rnExampleName")).to_have_text("About - Design - Acme Corp - V1")   # this file's own client/phase/version came back
+        expect(ui.locator("#rnExampleName")).to_have_text("Homepage_Mockups_AllfitAutomotiveAndParts_V1")   # this file's own client and phase came back
         ui.locator("#back").click()
         ui.locator("#updCheck").click()
         expect(ui.locator("#toast")).to_have_text("You’re up to date (v9.9.0).")
@@ -314,13 +359,13 @@ def run():
         expect(ui.locator("#version")).to_have_text("v9.9.0")
         ui.locator("#openSettings").click()
         expect(ui.locator("#stVersion")).to_have_text("Installed: v9.9.0")
-        expect(ui.locator("#stSource")).to_contain_text("The plugin folder still holds v1.3.1")
-        expect(ui.locator("#stRemove")).to_have_text("Go back to v1.3.1")
+        expect(ui.locator("#stSource")).to_contain_text("The plugin folder still holds v1.4.0")
+        expect(ui.locator("#stRemove")).to_have_text("Go back to v1.4.0")
         shot("16-settings-updated")
 
         # going back
         ui.locator("#stRemove").click()
-        expect(ui.locator("#version")).to_have_text("v1.3.1")
+        expect(ui.locator("#version")).to_have_text("v1.4.0")
         expect(ui.locator(".lede")).to_have_text("Everyday design utilities in one place.")
         page.wait_for_function("env.storage['%s'] === undefined" % KEY)
 
@@ -331,7 +376,7 @@ def run():
         page.wait_for_function("JSON.parse(env.storage['%s']).pending === false" % KEY)
         ev("(() => { const s = JSON.parse(env.storage['%s']); s.pending = true; env.storage['%s'] = JSON.stringify(s); })()" % (KEY, KEY))
         ev("launch()")
-        expect(ui.locator("#version")).to_have_text("v1.3.1")
+        expect(ui.locator("#version")).to_have_text("v1.4.0")
         expect(ui.locator("#toast")).to_contain_text("Update 9.9.0 didn’t start properly")
         assert saved() is None
 

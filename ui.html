@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="utilitykit-version" content="1.3.1">
+<meta name="utilitykit-version" content="1.4.0">
 <title>UtilityKit</title>
 <style>:root {
   --bg: #F5F5F7;
@@ -144,14 +144,18 @@ i[data-icon] { display: inline-flex; width: 16px; height: 16px; flex: none; }
 .example.is-empty .example-name { font-weight: 500; color: var(--muted); }
 
 /* ── naming fields ── */
-.fields { display: flex; flex-direction: column; gap: 6px; }
-.field { display: grid; grid-template-columns: 28px 86px minmax(0, 1fr) auto; align-items: center; column-gap: 8px; row-gap: 6px; }
-.field.off .field-label { color: var(--faint); }
-.field.off .input { opacity: .5; }
-.field-label { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.field-extra { grid-column: 3 / 4; }
-.move { display: inline-flex; }
-.move .icon-btn { width: 20px; height: 28px; }
+.rows { display: flex; flex-direction: column; gap: 8px; }
+.frow { display: grid; grid-template-columns: 86px minmax(0, 1fr); align-items: center; column-gap: 8px; row-gap: 4px; }
+.frow-label { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.frow-value { color: var(--muted); min-width: 0; }
+.frow-hint { color: var(--faint); font-size: 11px; line-height: 1.4; margin: -4px 0 0 94px; overflow-wrap: anywhere; }
+.card > .frow-hint { margin-top: -2px; }
+.frow-pair { display: flex; gap: 6px; min-width: 0; }
+.frow-pair .select { flex: 1; }
+.input.num { width: 58px; flex: none; text-align: center; padding: 0 4px; }
+.frow .seg { justify-self: start; max-width: 100%; }
+.seg-wide { display: flex; flex: none; }
+.seg-wide button { flex: 1; height: 26px; font-size: 12px; }
 
 .switch { position: relative; width: 28px; height: 16px; flex: none; cursor: pointer; }
 .switch input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
@@ -287,9 +291,9 @@ html.figma-dark .toast.error { background: #D9473E; color: #fff; }
 /* ── narrow plugin windows ── */
 @media (max-width: 339px) {
   .scroll { padding: 10px; }
-  .field { grid-template-columns: 28px minmax(0, 1fr) auto; }
-  .field > .input, .field > .select { grid-column: 1 / -1; grid-row: 2; }
-  .field-extra { grid-column: 1 / -1; }
+  .frow { grid-template-columns: minmax(0, 1fr); }
+  .frow-hint { margin-left: 0; }
+  .frow .seg { display: flex; justify-self: stretch; }
   .opt { flex-direction: column; align-items: stretch; gap: 6px; }
   .seg { display: flex; }
   .seg button { flex: 1; padding: 0 4px; min-width: 0; }
@@ -348,40 +352,83 @@ html.figma-dark .toast.error { background: #D9473E; color: #fff; }
     <!-- ───────────── Layer Renamer ───────────── -->
     <section class="screen" data-screen="renamer" hidden>
       <div class="scroll">
+        <div class="seg seg-wide" id="rnMode" role="radiogroup" aria-label="Type of work">
+          <button type="button" data-value="web">Web</button>
+          <button type="button" data-value="marketing">Marketing</button>
+        </div>
+
         <div class="card">
-          <div class="card-head"><h2>Name format</h2><span class="hint">Empty fields are left out</span></div>
           <div class="example" id="rnExample">
             <span class="example-label">Live preview</span>
             <span class="example-name" id="rnExampleName">—</span>
             <span class="example-from" id="rnExampleFrom"></span>
           </div>
-          <div class="fields" id="rnFields"></div>
+
+          <div class="rows" id="rnWeb">
+            <label class="frow"><span class="frow-label">Page type</span>
+              <input class="input" id="rnPageType" type="text" maxlength="80" autocomplete="off" spellcheck="false"></label>
+            <p class="frow-hint" id="rnPageHint"></p>
+            <div class="frow"><span class="frow-label">Device</span><span class="frow-value" id="rnDevices"></span></div>
+            <div class="frow"><span class="frow-label">Design phase</span>
+              <div class="seg" id="rnPhase" role="radiogroup" aria-label="Design phase">
+                <button type="button" data-value="">None</button>
+                <button type="button" data-value="Wireframes">Wireframes</button>
+                <button type="button" data-value="Mockups">Mockups</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="rows" id="rnMarketing" hidden>
+            <label class="check"><input type="checkbox" id="rnIncludeSize"><span class="box"></span><span>Start with the size, read from each frame</span></label>
+            <label class="frow"><span class="frow-label">Deliverable</span>
+              <input class="input" id="rnDeliverable" type="text" list="rnDeliverables" placeholder="e.g. MetaAds" maxlength="80" autocomplete="off" spellcheck="false"></label>
+            <label class="frow"><span class="frow-label">Specific task</span>
+              <input class="input" id="rnTask" type="text" placeholder="e.g. Black Friday" maxlength="80" autocomplete="off"></label>
+            <label class="frow"><span class="frow-label">Variation</span>
+              <input class="input" id="rnVariation" type="text" list="rnVariations" placeholder="Optional, e.g. A" maxlength="40" autocomplete="off" spellcheck="false"></label>
+          </div>
+
+          <label class="frow"><span class="frow-label">Client</span>
+            <input class="input" id="rnClient" type="text" placeholder="Client name" maxlength="120" autocomplete="off"></label>
         </div>
 
         <div class="card">
-          <div class="card-head"><h2>Formatting</h2></div>
-          <label class="check"><input type="checkbox" id="rnCapitalize"><span class="box"></span><span>Capitalize Each Word</span></label>
-          <label class="check"><input type="checkbox" id="rnStripDate"><span class="box"></span><span>Remove leading date <code>YYYY-MM</code></span></label>
+          <div class="card-head"><h2>Version</h2></div>
+          <div class="frow"><span class="frow-label">Version</span>
+            <div class="frow-pair">
+              <select class="select" id="rnVersionMode" aria-label="Version">
+                <option value="auto">Automatic</option>
+                <option value="next">Next version (+1)</option>
+                <option value="set">Start at…</option>
+              </select>
+              <input class="input num" id="rnVersionValue" type="number" min="1" max="999" aria-label="Version number" hidden>
+            </div>
+          </div>
+          <div class="frow"><span class="frow-label">Revision</span>
+            <div class="frow-pair">
+              <select class="select" id="rnRevisionMode" aria-label="Revision">
+                <option value="keep">Keep as it is</option>
+                <option value="next">Next revision (+1)</option>
+                <option value="none">No revision</option>
+                <option value="set">Set to…</option>
+              </select>
+              <input class="input num" id="rnRevisionValue" type="number" min="1" max="999" aria-label="Revision number" hidden>
+            </div>
+          </div>
+          <p class="frow-hint" id="rnVersionHelp"></p>
         </div>
 
         <details class="card details" id="rnAdvanced">
-          <summary><h2>Advanced</h2><i data-icon="down" class="details-arrow"></i></summary>
+          <summary><h2>Resize</h2><i data-icon="down" class="details-arrow"></i></summary>
           <div class="details-body">
-            <div class="opt">
-              <span class="opt-label">Separator</span>
-              <div class="seg" id="rnSeparator" role="radiogroup" aria-label="Separator">
-                <button type="button" data-value="dash" title="Space, hyphen, space">A - B</button>
-                <button type="button" data-value="pipe">A | B</button>
-                <button type="button" data-value="slash">A / B</button>
-                <button type="button" data-value="underscore">A_B</button>
-              </div>
-            </div>
-            <label class="check"><input type="checkbox" id="rnVersionPrefix"><span class="box"></span><span>Write versions as <code>V1</code>, <code>V2</code>…</span></label>
-            <label class="check"><input type="checkbox" id="rnNumber"><span class="box"></span><span>Number identical names <code>01</code>, <code>02</code>…</span></label>
-            <label class="check"><input type="checkbox" id="rnResize"><span class="box"></span><span>Resize layers to <b id="rnResizeW">1600</b> px wide</span></label>
+            <label class="check"><input type="checkbox" id="rnResize"><span class="box"></span><span>Resize frames to a standard width</span></label>
             <div class="sub" id="rnResizeModes" hidden>
-              <label class="radio"><input type="radio" name="rnResizeMode" value="scale"><span class="ring"></span><span><b>Scale proportionally</b><small>Keeps the aspect ratio; contents scale too.</small></span></label>
-              <label class="radio"><input type="radio" name="rnResizeMode" value="width"><span class="ring"></span><span><b>Width only</b><small>Height stays as it is; auto layout re-hugs.</small></span></label>
+              <div class="seg" id="rnResizeTarget" role="radiogroup" aria-label="Width">
+                <button type="button" data-value="1600">Desktop 1600</button>
+                <button type="button" data-value="320">Mobile 320</button>
+              </div>
+              <label class="radio"><input type="radio" name="rnResizeMode" value="scale"><span class="ring"></span><span><b>Scale proportionally</b><small>Keeps the shape; everything inside scales too.</small></span></label>
+              <label class="radio"><input type="radio" name="rnResizeMode" value="width"><span class="ring"></span><span><b>Width only</b><small>Height stays as it is.</small></span></label>
             </div>
           </div>
         </details>
@@ -611,7 +658,6 @@ html.figma-dark .toast.error { background: #D9473E; color: #fff; }
     screen: 'home',
     selection: { count: 0, names: [] },
     settings: null,          // renamer settings (shape defined by the plugin logic)
-    fields: { page: 'Page', phase: 'Design Phase', client: 'Client', version: 'Version' },
     flatten: { scale: 2, replace: false, summary: null, result: null, pendingMode: null, busy: false },
     preview: null,
     applied: null,
@@ -619,13 +665,13 @@ html.figma-dark .toast.error { background: #D9473E; color: #fff; }
     drive: null,
     driveBusy: false,
     version: '',
+    autoPageType: '',        // the page type read from the current Figma page
     install: null,           // which copy is running: the plugin folder's, or a downloaded update
     installing: false
   };
 
   var TITLES = { renamer: 'Layer Renamer', preview: 'Rename Preview', flatten: 'Flatten & Merge', drive: 'Google Drive Links', settings: 'Settings' };
   var PARENT = { renamer: 'home', flatten: 'home', drive: 'home', preview: 'renamer' };
-  var PLACEHOLDERS = { page: 'e.g. Home', phase: 'e.g. Design', client: 'Client name', version: 'e.g. 1' };
 
   // ── toast / notes ───────────────────────────────────────────────────────
 
@@ -732,58 +778,6 @@ html.figma-dark .toast.error { background: #D9473E; color: #fff; }
     saveSettingsSoon();
   }
 
-  function renderFields() {
-    var s = state.settings;
-    var wrap = clear($('rnFields'));
-    s.order.forEach(function (key, index) {
-      var on = !!s.enabled[key];
-      var input;
-      var extra = null;
-
-      if (key === 'page') {
-        input = h('select', { class: 'select', 'aria-label': 'Page name source', disabled: !on, onchange: function (e) {
-          s.pageSource = e.target.value; renderFields(); settingsChanged();
-        } },
-          h('option', { value: 'layer' }, 'Layer name'),
-          h('option', { value: 'custom' }, 'Custom text'));
-        input.value = s.pageSource;
-        if (s.pageSource === 'custom') {
-          extra = h('input', { class: 'input field-extra', type: 'text', value: s.page, placeholder: PLACEHOLDERS.page, 'aria-label': 'Page name', maxlength: 120, disabled: !on,
-            oninput: function (e) { s.page = e.target.value; settingsChanged(); } });
-        }
-      } else {
-        input = h('input', { class: 'input', type: 'text', value: s[key], placeholder: PLACEHOLDERS[key], 'aria-label': state.fields[key], maxlength: 120, disabled: !on,
-          list: key === 'phase' ? 'rnPhases' : null,
-          oninput: function (e) { s[key] = e.target.value; settingsChanged(); } });
-      }
-
-      var toggle = h('label', { class: 'switch', title: on ? 'Included in the name' : 'Left out of the name' },
-        h('input', { type: 'checkbox', checked: on, 'aria-label': 'Include ' + state.fields[key], onchange: function (e) {
-          s.enabled[key] = e.target.checked; renderFields(); settingsChanged();
-        } }), h('span'));
-
-      var move = h('span', { class: 'move' },
-        h('button', { class: 'icon-btn', type: 'button', icon: 'up', title: 'Move earlier', 'aria-label': 'Move ' + state.fields[key] + ' earlier', disabled: index === 0,
-          onclick: function () { swap(index, index - 1); } }),
-        h('button', { class: 'icon-btn', type: 'button', icon: 'down', title: 'Move later', 'aria-label': 'Move ' + state.fields[key] + ' later', disabled: index === s.order.length - 1,
-          onclick: function () { swap(index, index + 1); } }));
-
-      wrap.appendChild(h('div', { class: 'field' + (on ? '' : ' off'), 'data-key': key },
-        toggle, h('span', { class: 'field-label' }, state.fields[key]), input, move, extra));
-    });
-    if (!$('rnPhases')) {
-      document.body.appendChild(h('datalist', { id: 'rnPhases' },
-        ['Wireframe', 'Design', 'Revision', 'Final'].map(function (v) { return h('option', { value: v }); })));
-    }
-  }
-
-  function swap(a, b) {
-    var order = state.settings.order;
-    var t = order[a]; order[a] = order[b]; order[b] = t;
-    renderFields();
-    settingsChanged();
-  }
-
   function setSeg(container, value) {
     var buttons = container.querySelectorAll('button');
     for (var i = 0; i < buttons.length; i++) {
@@ -793,18 +787,61 @@ html.figma-dark .toast.error { background: #D9473E; color: #fff; }
     }
   }
 
+  function fillList(id, values) {
+    var list = $(id);
+    if (!list) { list = h('datalist', { id: id }); document.body.appendChild(list); }
+    clear(list);
+    (values || []).forEach(function (v) { list.appendChild(h('option', { value: v })); });
+  }
+
+  /** Puts the saved choices into the Layer Renamer controls. */
   function renderRenamerOptions() {
     var s = state.settings;
-    $('rnCapitalize').checked = s.capitalize;
-    $('rnStripDate').checked = s.stripDate;
-    $('rnVersionPrefix').checked = s.versionPrefix;
-    $('rnNumber').checked = s.numberDuplicates;
+    var marketing = s.mode === 'marketing';
+    setSeg($('rnMode'), s.mode);
+    $('rnWeb').hidden = marketing;
+    $('rnMarketing').hidden = !marketing;
+    $('rnAdvanced').hidden = marketing;
+
+    $('rnPageType').value = s.pageType || state.autoPageType || '';
+    setSeg($('rnPhase'), s.phase);
+    $('rnIncludeSize').checked = s.includeSize;
+    $('rnDeliverable').value = s.deliverable;
+    $('rnTask').value = s.task;
+    $('rnVariation').value = s.variation;
+    $('rnClient').value = s.client;
+
+    $('rnVersionMode').value = s.versionMode;
+    $('rnVersionValue').hidden = s.versionMode !== 'set';
+    $('rnVersionValue').value = s.versionValue;
+    $('rnRevisionMode').value = s.versionMode === 'next' && s.revisionMode !== 'set' ? 'none' : s.revisionMode;
+    $('rnRevisionMode').disabled = false;
+    $('rnRevisionValue').hidden = s.revisionMode !== 'set';
+    $('rnRevisionValue').value = s.revisionValue;
+    $('rnVersionHelp').textContent =
+      s.versionMode === 'auto' ? 'Frames that already have a version keep it. New frames are numbered left to right: V1, V2, V3.'
+      : s.versionMode === 'next' ? 'Every frame moves up one version and starts again without a revision.'
+      : 'Frames are numbered left to right starting at V' + s.versionValue + '.';
+
     $('rnResize').checked = s.resize;
     $('rnResizeModes').hidden = !s.resize;
-    setSeg($('rnSeparator'), s.separator);
+    setSeg($('rnResizeTarget'), s.resizeTarget);
     var radios = document.getElementsByName('rnResizeMode');
     for (var i = 0; i < radios.length; i++) radios[i].checked = radios[i].value === s.resizeMode;
     if (s.resize) $('rnAdvanced').open = true;
+  }
+
+  function renderVersionHelpOnly() {
+    $('rnVersionHelp').textContent = 'Frames are numbered left to right starting at V' + state.settings.versionValue + '.';
+  }
+
+  function devicesText(summary, selected) {
+    if (!selected) return 'Desktop at 1600 px wide, Mobile at 320 px';
+    var bits = [];
+    if (summary.desktop) bits.push(summary.desktop + ' Desktop');
+    if (summary.mobile) bits.push(summary.mobile + ' Mobile');
+    if (summary.otherWidth) bits.push(summary.otherWidth + ' other width (no tag)');
+    return bits.join(' · ');
   }
 
   function refreshExample() {
@@ -814,20 +851,32 @@ html.figma-dark .toast.error { background: #D9473E; color: #fff; }
       if (mine !== exampleSeq) return;          // a newer request is on its way
       var box = $('rnExample'), name = $('rnExampleName'), from = $('rnExampleFrom');
       var btn = $('rnPreviewBtn');
+
+      // what was read from the page and the selection
+      state.autoPageType = p.autoPageType || '';
+      var pageInput = $('rnPageType');
+      pageInput.placeholder = p.autoPageType || 'Type a page type';
+      // Show the page's own name in the box unless the designer typed something else.
+      if (!state.settings.pageType && document.activeElement !== pageInput) pageInput.value = state.autoPageType;
+      $('rnPageHint').textContent = p.autoPageType
+        ? 'Read from this page, “' + p.pageName + '”. Type here to change it.'
+        : 'The page “' + p.pageName + '” has no usable name. Type a page type.';
+      $('rnDevices').textContent = devicesText(p.summary, p.counts.selected);
+
+      if (!p.counts.selected) {
+        box.classList.add('is-empty');
+        name.textContent = 'Select frames on the canvas';
+        from.textContent = 'The new name will show here.';
+        btn.disabled = true;
+        btn.textContent = 'Select frames to rename';
+        return;
+      }
       if (p.error) {
         box.classList.add('is-empty');
-        name.textContent = 'Add at least one field';
+        name.textContent = p.error;
         from.textContent = '';
         btn.disabled = true;
         btn.textContent = 'Preview changes';
-        return;
-      }
-      if (!p.counts.selected) {
-        box.classList.add('is-empty');
-        name.textContent = 'Select layers on the canvas';
-        from.textContent = 'The new name will show here as you type.';
-        btn.disabled = true;
-        btn.textContent = 'Select layers to rename';
         return;
       }
       var row = p.rows[0];
@@ -876,7 +925,7 @@ html.figma-dark .toast.error { background: #D9473E; color: #fff; }
       var bits = [];
       if (done.renamed) bits.push('Renamed ' + plural(done.renamed, 'layer') + '.');
       else bits.push('No names needed changing.');
-      if (done.resizeRequested) bits.push('Resized ' + plural(done.resized, 'layer') + ' to 1600 px wide.');
+      if (done.resizeRequested) bits.push('Resized ' + plural(done.resized, 'frame') + ' to ' + done.resizeTarget + ' px wide.');
       bits.push('Undo with ⌘Z / Ctrl+Z.');
       banner.appendChild(note('success', 'Done', [bits.join(' ')]));
       if (done.failedCount) {
@@ -891,11 +940,11 @@ html.figma-dark .toast.error { background: #D9473E; color: #fff; }
       if (state.previewNotice) banner.appendChild(note('info', '', [state.previewNotice]));
       if (p.resize) {
         banner.appendChild(note(p.counts.resizeSkipped ? 'warn' : 'info', '',
-          [plural(p.counts.willResize, 'layer') + ' will be resized to 1600 px wide' +
+          [plural(p.counts.willResize, 'frame') + ' will be resized to ' + p.resizeTarget + ' px wide' +
             (p.counts.resizeSkipped ? '; ' + p.counts.resizeSkipped + ' can’t be resized.' : '.')]));
       }
       if (!p.counts.willRename && !(p.resize && p.counts.willResize)) {
-        banner.appendChild(note('info', 'Nothing to change', ['Every selected layer already has this name.']));
+        banner.appendChild(note('info', 'Nothing to change', ['Every selected layer already has the right name.']));
       }
     }
     banner.style.display = banner.firstChild ? 'flex' : 'none';
@@ -909,7 +958,7 @@ html.figma-dark .toast.error { background: #D9473E; color: #fff; }
     p.rows.forEach(function (row) {
       var meta = [];
       if (!row.changed) meta.push(h('span', { class: 'tag' }, 'No change'));
-      if (!row.changed && row.note && row.note !== 'Already named this way') meta.push(h('span', null, row.note));
+      if (row.note) meta.push(h('span', null, row.note));
       if (row.resize) meta.push(h('span', null, row.resize));
       if (row.resizeNote && p.resize) meta.push(h('span', null, 'Size kept: ' + row.resizeNote));
       var failed = done && row.changed && failedNames[row.current];
@@ -957,6 +1006,10 @@ html.figma-dark .toast.error { background: #D9473E; color: #fff; }
       }
       state.applied = res;
       state.previewNotice = '';
+      // "Next version" and friends are one-off actions; don't leave them armed.
+      state.settings.versionMode = 'auto';
+      state.settings.revisionMode = 'keep';
+      renderRenamerOptions();
       renderPreview();
       document.querySelector('[data-screen="preview"] .scroll').scrollTop = 0;
     }).catch(function (err) { setBusy(btn, false); renderPreview(); fail(err); });
@@ -1341,7 +1394,6 @@ html.figma-dark .toast.error { background: #D9473E; color: #fff; }
       state.flatten.scale = fresh.flatten.scale;
       state.preview = null;
       state.applied = null;
-      renderFields();
       renderRenamerOptions();
       $('rnAdvanced').open = false;
       $('stResetConfirm').hidden = true;
@@ -1371,20 +1423,50 @@ html.figma-dark .toast.error { background: #D9473E; color: #fff; }
     });
 
     // renamer
-    var flags = { rnCapitalize: 'capitalize', rnStripDate: 'stripDate', rnVersionPrefix: 'versionPrefix', rnNumber: 'numberDuplicates', rnResize: 'resize' };
-    Object.keys(flags).forEach(function (id) {
-      $(id).addEventListener('change', function (e) {
-        state.settings[flags[id]] = e.target.checked;
+    var seg = function (id, key, cast) {
+      $(id).addEventListener('click', function (e) {
+        var b = e.target.closest('button');
+        if (!b) return;
+        state.settings[key] = cast ? cast(b.getAttribute('data-value')) : b.getAttribute('data-value');
         renderRenamerOptions();
         settingsChanged();
       });
+    };
+    seg('rnMode', 'mode');
+    seg('rnPhase', 'phase');
+    seg('rnResizeTarget', 'resizeTarget', Number);
+
+    // Page type: typing the page's own name (or nothing) means "read it from the page".
+    $('rnPageType').addEventListener('input', function (e) {
+      var v = e.target.value;
+      state.settings.pageType = v.trim() === '' || v === state.autoPageType ? '' : v;
+      settingsChanged();
     });
-    $('rnSeparator').addEventListener('click', function (e) {
-      var b = e.target.closest('button');
-      if (!b) return;
-      state.settings.separator = b.getAttribute('data-value');
+    $('rnPageType').addEventListener('blur', function (e) {
+      if (!state.settings.pageType) e.target.value = state.autoPageType || '';
+    });
+    var typed = { rnClient: 'client', rnDeliverable: 'deliverable', rnTask: 'task', rnVariation: 'variation' };
+    Object.keys(typed).forEach(function (id) {
+      $(id).addEventListener('input', function (e) { state.settings[typed[id]] = e.target.value; settingsChanged(); });
+    });
+    var ticks = { rnIncludeSize: 'includeSize', rnResize: 'resize' };
+    Object.keys(ticks).forEach(function (id) {
+      $(id).addEventListener('change', function (e) { state.settings[ticks[id]] = e.target.checked; renderRenamerOptions(); settingsChanged(); });
+    });
+    $('rnVersionMode').addEventListener('change', function (e) {
+      state.settings.versionMode = e.target.value;
+      if (e.target.value === 'next' && state.settings.revisionMode !== 'set') state.settings.revisionMode = 'none';
+      if (e.target.value !== 'next' && state.settings.revisionMode === 'none') state.settings.revisionMode = 'keep';
       renderRenamerOptions();
       settingsChanged();
+    });
+    $('rnRevisionMode').addEventListener('change', function (e) { state.settings.revisionMode = e.target.value; renderRenamerOptions(); settingsChanged(); });
+    var numbers = { rnVersionValue: 'versionValue', rnRevisionValue: 'revisionValue' };
+    Object.keys(numbers).forEach(function (id) {
+      $(id).addEventListener('input', function (e) {
+        var n = Math.round(Number(e.target.value));
+        if (n >= 1 && n <= 999) { state.settings[numbers[id]] = n; settingsChanged(); if (id === 'rnVersionValue') renderVersionHelpOnly(); }
+      });
     });
     var modes = document.getElementsByName('rnResizeMode');
     for (var m = 0; m < modes.length; m++) {
@@ -1448,15 +1530,14 @@ html.figma-dark .toast.error { background: #D9473E; color: #fff; }
     call('init').then(function (data) {
       state.settings = data.settings.renamer;
       state.flatten.scale = data.settings.flatten.scale;
-      state.fields = data.fields || state.fields;
+      fillList('rnDeliverables', data.naming && data.naming.deliverables);
+      fillList('rnVariations', data.naming && data.naming.variations);
       state.selection = data.selection;
       $('version').textContent = 'v' + data.version;
       state.version = data.version;
       state.install = data.install || null;
       renderInstall();
-      $('rnResizeW').textContent = data.resizeWidth;
       renderSelection();
-      renderFields();
       renderRenamerOptions();
       if (state.install && state.install.note) toast(state.install.note, true);
     }).catch(fail);

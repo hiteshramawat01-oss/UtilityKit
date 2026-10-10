@@ -82,9 +82,10 @@ test('update now: download, save, restart into the new version, confirm', async 
   assert.equal(saved(env).pending, false);
 
   // and it really is the running plugin: a normal request works
-  env.select([env.add('FRAME', { name: 'home' })]);
+  env.figma.currentPage.name = 'Homepage';
+  env.select([env.add('FRAME', { name: 'home', width: 1600, height: 900 })]);
   const pre = await ask(env, 'rename.preview', { settings: { client: 'acme' } });
-  assert.equal(pre.data.rows[0].proposed, 'Home - Acme');
+  assert.equal(pre.data.rows[0].proposed, 'Homepage_Desktop_Acme_V1');
 });
 
 test('next launch: a saved newer version runs instead of the folder copy', async () => {

@@ -8,7 +8,7 @@
  * Syntax is kept conservative on purpose (no optional chaining, no object
  * spread) because Figma's sandbox is stricter than a browser.
  */
-var UK = { VERSION: '1.3.1' };   // filled in from version.json by build.js
+var UK = { VERSION: '1.4.0' };   // filled in from version.json by build.js
 
 /** An error whose message is safe and useful to show to the designer. */
 UK.userError = function (message, code) {
@@ -83,7 +83,7 @@ function __ukCompile(source) {
 
 var UKLoader = (typeof UKLoader === 'object' && UKLoader) || (function () {
   var KEY = 'utilitykit.update.v1';
-  var BUNDLED = '1.3.1';          // the version in the plugin folder
+  var BUNDLED = '1.4.0';          // the version in the plugin folder
   var MIN_CHARS = 1000;
   var MAX_CHARS = 1500000;
 
@@ -221,282 +221,361 @@ var UKLoader = (typeof UKLoader === 'object' && UKLoader) || (function () {
 // ---- 10-naming.js ----
 /*
  * Naming engine — pure functions, no Figma API.
- * Everything the Layer Renamer decides about a name happens here, so it can be
- * unit-tested without Figma and the preview can never disagree with Apply.
+ * Implements the team's file naming guideline:
+ *
+ *   Web:        PageType_Device_DesignPhase_ClientName_V1R1
+ *   Marketing:  Size_DeliverableType_SpecificTask_ClientName_V1R1_Variation
+ *
+ * Parts that don't apply are left out. Every part is written without spaces,
+ * dashes or symbols ("All-fit Automotive & Parts" -> "AllfitAutomotiveAndParts").
+ * The preview and Apply both use plan(), so they can never disagree.
  */
 UK.naming = (function () {
-  var FIELD_KEYS = ['page', 'phase', 'client', 'version'];
-  var FIELD_LABELS = { page: 'Page', phase: 'Design Phase', client: 'Client', version: 'Version' };
-  var SEPARATORS = { dash: ' - ', pipe: ' | ', slash: ' / ', underscore: '_' };
-  var RESIZE_WIDTH = 1600;
+  var PHASES = ['Wireframes', 'Mockups'];
+  var DELIVERABLES = ['MetaAds', 'GoogleAds', 'MetaVideoAds', 'EmailBanner', 'EmailTemplate', 'IGCarousel', 'IGReel', 'Infographic'];
+  var VARIATIONS = ['A', 'B', 'CMYK', 'RGB', 'Logo', 'Image', 'Alt', 'Transparent'];
+  // Frame width decides the device tag (Web only).
+  var DEVICES = [{ width: 1600, tag: 'Desktop' }, { width: 320, tag: 'Mobile' }];
+  // Short size codes the guideline allows for video deliverables.
+  var VIDEO_SIZES = { '1080x1920': 'V', '1920x1080': 'H', '1080x1350': 'P', '1080x1080': 'S' };
+  var RESIZABLE = ['FRAME', 'COMPONENT', 'INSTANCE', 'GROUP', 'SECTION'];
+  var SEP = '_';
 
   function defaults() {
     return {
-      order: FIELD_KEYS.slice(),
-      enabled: { page: true, phase: true, client: true, version: true },
-      pageSource: 'layer',      // 'layer' = each layer's own name, 'custom' = typed text
-      page: '',
-      phase: '',
+      mode: 'web',              // 'web' | 'marketing'
+      pageType: '',             // '' = read it from the Figma page name
+      phase: '',                // '' | 'Wireframes' | 'Mockups'
       client: '',
-      version: '',
-      separator: 'dash',
-      capitalize: true,
-      stripDate: true,
-      versionPrefix: true,
-      numberDuplicates: false,
+      deliverable: '',
+      task: '',
+      variation: '',
+      includeSize: true,
+      versionMode: 'auto',      // 'auto' keep existing + number new | 'next' +1 | 'set' start at versionValue
+      versionValue: 1,
+      revisionMode: 'keep',     // 'keep' | 'next' +1 | 'none' | 'set' revisionValue
+      revisionValue: 1,
       resize: false,
-      resizeMode: 'scale'       // 'scale' = keep aspect ratio, 'width' = width only
+      resizeTarget: 1600,       // 1600 (Desktop) | 320 (Mobile)
+      resizeMode: 'scale'       // 'scale' keep aspect ratio | 'width' width only
     };
   }
 
-  /** Accepts anything (old saved data, partial objects) and returns valid settings. */
-  function normalize(raw) {
-    var out = defaults();
-    if (!raw || typeof raw !== 'object') return out;
-    var i, key;
-
-    if (Array.isArray(raw.order)) {
-      var order = [];
-      for (i = 0; i < raw.order.length; i++) {
-        key = raw.order[i];
-        if (FIELD_KEYS.indexOf(key) !== -1 && order.indexOf(key) === -1) order.push(key);
-      }
-      for (i = 0; i < FIELD_KEYS.length; i++) {
-        if (order.indexOf(FIELD_KEYS[i]) === -1) order.push(FIELD_KEYS[i]);
-      }
-      out.order = order;
-    }
-    if (raw.enabled && typeof raw.enabled === 'object') {
-      for (i = 0; i < FIELD_KEYS.length; i++) {
-        key = FIELD_KEYS[i];
-        if (typeof raw.enabled[key] === 'boolean') out.enabled[key] = raw.enabled[key];
-      }
-    }
-    for (i = 0; i < FIELD_KEYS.length; i++) {
-      key = FIELD_KEYS[i];
-      if (typeof raw[key] === 'string' || typeof raw[key] === 'number') out[key] = String(raw[key]).slice(0, 200);
-    }
-    if (raw.pageSource === 'custom' || raw.pageSource === 'layer') out.pageSource = raw.pageSource;
-    if (Object.prototype.hasOwnProperty.call(SEPARATORS, raw.separator)) out.separator = raw.separator;
-    if (raw.resizeMode === 'scale' || raw.resizeMode === 'width') out.resizeMode = raw.resizeMode;
-    var flags = ['capitalize', 'stripDate', 'versionPrefix', 'numberDuplicates', 'resize'];
-    for (i = 0; i < flags.length; i++) {
-      if (typeof raw[flags[i]] === 'boolean') out[flags[i]] = raw[flags[i]];
-    }
-    return out;
+  function oneOf(value, allowed, fallback) {
+    return allowed.indexOf(value) === -1 ? fallback : value;
+  }
+  function whole(value, min, max, fallback) {
+    var n = Math.round(Number(value));
+    return isFinite(n) && n >= min && n <= max ? n : fallback;
+  }
+  function text(value) {
+    return typeof value === 'string' || typeof value === 'number' ? String(value).slice(0, 200) : '';
   }
 
-  var collapse = UK.collapse;
+  /** Accepts anything (older saved data, partial objects) and returns valid settings. */
+  function normalize(raw) {
+    var d = defaults();
+    if (!raw || typeof raw !== 'object') return d;
+    d.mode = oneOf(raw.mode, ['web', 'marketing'], d.mode);
+    d.pageType = text(raw.pageType);
+    d.phase = oneOf(raw.phase, PHASES, '');
+    d.client = text(raw.client);
+    d.deliverable = text(raw.deliverable);
+    d.task = text(raw.task);
+    d.variation = text(raw.variation);
+    if (typeof raw.includeSize === 'boolean') d.includeSize = raw.includeSize;
+    d.versionMode = oneOf(raw.versionMode, ['auto', 'next', 'set'], d.versionMode);
+    d.versionValue = whole(raw.versionValue, 1, 999, d.versionValue);
+    d.revisionMode = oneOf(raw.revisionMode, ['keep', 'next', 'none', 'set'], d.revisionMode);
+    d.revisionValue = whole(raw.revisionValue, 0, 999, d.revisionValue);
+    if (typeof raw.resize === 'boolean') d.resize = raw.resize;
+    d.resizeTarget = oneOf(Number(raw.resizeTarget), [1600, 320], d.resizeTarget);
+    d.resizeMode = oneOf(raw.resizeMode, ['scale', 'width'], d.resizeMode);
+    return d;
+  }
+
+  /** The settings worth remembering between sessions. One-off choices (version, revision, page override) are not. */
+  function persistable(raw) {
+    var s = normalize(raw), d = defaults();
+    s.pageType = d.pageType;
+    s.variation = d.variation;
+    s.versionMode = d.versionMode;
+    s.versionValue = d.versionValue;
+    s.revisionMode = d.revisionMode;
+    s.revisionValue = d.revisionValue;
+    return s;
+  }
 
   // Leading "YYYY-MM" (optionally "-DD"), plus whatever separator follows it.
   var LEADING_DATE = /^\s*(?:19|20)\d{2}[-_.\/](?:0[1-9]|1[0-2])(?:[-_.\/](?:0[1-9]|[12]\d|3[01]))?(?!\d)\s*(?:[-–—_:|\/,]+\s*)*/;
-  var EDGE_JUNK = /^[\s\-–—_|\/:,]+|[\s\-–—_|\/:,]+$/g;
-
   function stripLeadingDate(value) {
     return String(value).replace(LEADING_DATE, '');
   }
 
-  /** Uppercases the first letter of each word and leaves the rest alone (so "CTA" and "iPad" survive). */
-  function capitalizeWords(value) {
-    return String(value).replace(/(^|[\s\/(\[_]+)([^\s\/(\[_])/g, function (m, lead, ch) {
-      return lead + ch.toUpperCase();
-    });
-  }
-
-  function tidy(value) {
-    return collapse(value).replace(EDGE_JUNK, '');
-  }
-
-  function formatVersion(value, prefix) {
-    var v = tidy(value);
-    if (!v || !prefix) return v;
-    var m = /^v(?:ersion)?[\s.\-_]*(\d.*)$/i.exec(v);
-    if (m) return 'V' + m[1];
-    if (/^\d/.test(v)) return 'V' + v;
-    return v;
-  }
-
-  /** The Page value taken from a layer's own name. */
-  function pageFromLayerName(layerName, settings) {
-    var v = String(layerName === null || layerName === undefined ? '' : layerName);
-    if (settings.stripDate) v = stripLeadingDate(v);
-    v = tidy(v.replace(/_/g, ' '));
-    return v;
-  }
-
-  function fieldValue(key, settings, layerName) {
-    var v;
-    if (key === 'page') {
-      v = settings.pageSource === 'layer' ? pageFromLayerName(layerName, settings) : tidy(settings.page);
-    } else if (key === 'version') {
-      v = formatVersion(settings.version, settings.versionPrefix);
-    } else {
-      v = tidy(settings[key]);
-    }
-    if (v && settings.capitalize) v = capitalizeWords(v);
-    return v;
-  }
-
-  /** Builds one name. Empty and switched-off fields are simply left out. */
-  function buildName(settings, layerName) {
-    var parts = [];
-    for (var i = 0; i < settings.order.length; i++) {
-      var key = settings.order[i];
-      if (!settings.enabled[key]) continue;
-      var v = fieldValue(key, settings, layerName);
-      if (v) parts.push({ key: key, value: v });
-    }
-    var values = [];
-    for (var j = 0; j < parts.length; j++) values.push(parts[j].value);
-    return { name: values.join(SEPARATORS[settings.separator]), parts: parts };
-  }
-
-  /** Returns '' when the settings can produce a name, otherwise the reason they cannot. */
-  function validate(settings) {
-    for (var i = 0; i < FIELD_KEYS.length; i++) {
-      var key = FIELD_KEYS[i];
-      if (!settings.enabled[key]) continue;
-      if (key === 'page' && settings.pageSource === 'layer') return '';
-      if (tidy(settings[key])) return '';
-    }
-    return 'Add at least one naming field (Page, Design Phase, Client or Version) before renaming.';
-  }
-
-  function pad2(n) { return n < 10 ? '0' + n : String(n); }
-
-  function escapeRe(text) { return String(text).replace(/[.*+?^${}()|[\]\\\/-]/g, '\\$&'); }
+  var QUOTES = /['"`‘’“”ʼ]/g;
+  var INNER_DASH = /([A-Za-z0-9À-῿])[-‐‑]+(?=[A-Za-z0-9À-῿])/g;
+  var SYMBOLS = /[\s!-\/:-@\[-`{-~ -¿ -⯿　-〿︀-️\uD800-\uDFFF]/g;
+  var ARTICLE = /^(a|an|the)$/i;
 
   /**
-   * If a layer name already follows the current format (for example it was named
-   * by hand or by an older tool), returns just its Page part so the fields are
-   * not appended a second time. A different version number still counts as a
-   * match, so "Home - Design - Acme - V1" can become "... - V2". Otherwise ''.
+   * Writes text the way the guideline wants a name part: no spaces, dashes or
+   * symbols, each word starting with a capital.
+   *   "All-fit Automotive & Parts" -> "AllfitAutomotiveAndParts"
+   *   "5 tips for sales"           -> "5TipsForSales"
+   * Words that already contain capitals (iOS, UCA, eBay) are left as typed.
    */
-  function unwrapPage(settings, layerName) {
-    if (settings.pageSource !== 'layer' || !settings.enabled.page) return '';
-    var before = [], after = [], seenPage = false;
-    for (var i = 0; i < settings.order.length; i++) {
-      var key = settings.order[i];
-      if (key === 'page') { seenPage = true; continue; }
-      if (!settings.enabled[key]) continue;
-      var v = fieldValue(key, settings, '');
-      if (!v) continue;
-      var re = key === 'version' && /^v?\d/i.test(v) ? 'v?\\d+(?:\\.\\d+)*' : escapeRe(v).replace(/ /g, '\\s+');
-      (seenPage ? after : before).push(re);
+  function compact(value, dropArticles) {
+    var s = String(value === null || value === undefined ? '' : value);
+    s = s.replace(/&/g, ' And ').replace(QUOTES, '').replace(INNER_DASH, '$1').replace(SYMBOLS, ' ');
+    var words = s.split(' '), out = [];
+    for (var i = 0; i < words.length; i++) {
+      if (words[i]) out.push(words[i]);
     }
-    if (!before.length && !after.length) return '';
-    var sep = SEPARATORS[settings.separator];
-    var sepRe = sep === '_' ? '_' : '\\s*' + escapeRe(sep.trim()) + '\\s*';
-    var pattern = '^' + (before.length ? before.join(sepRe) + sepRe : '') + '(.+?)' + (after.length ? sepRe + after.join(sepRe) : '') + '$';
-    var m = new RegExp(pattern, 'i').exec(collapse(layerName));
-    return m ? m[1] : '';
+    if (dropArticles && out.length > 1) {
+      var kept = [];
+      for (var k = 0; k < out.length; k++) { if (!ARTICLE.test(out[k])) kept.push(out[k]); }
+      if (kept.length) out = kept;
+    }
+    for (var j = 0; j < out.length; j++) {
+      var w = out[j];
+      if (w === w.toLowerCase()) out[j] = w.charAt(0).toUpperCase() + w.slice(1);
+    }
+    return out.join('');
+  }
+
+  /** PageType from a Figma page name: "2026-05 - Home page" -> "HomePage". */
+  function pageTypeFrom(pageName) {
+    return compact(stripLeadingDate(pageName === null || pageName === undefined ? '' : pageName));
+  }
+
+  /** 'Desktop', 'Mobile' or '' for any other width. */
+  function deviceFor(width) {
+    var w = Math.round(Number(width));
+    for (var i = 0; i < DEVICES.length; i++) {
+      if (DEVICES[i].width === w) return DEVICES[i].tag;
+    }
+    return '';
+  }
+
+  /** "1080x1080", or the letter code for a video deliverable in a standard video size. */
+  function sizeFor(width, height, deliverable) {
+    var w = Math.round(Number(width)), h = Math.round(Number(height));
+    if (!(w > 0) || !(h > 0)) return '';
+    var size = w + 'x' + h;
+    if (/video|reel/i.test(deliverable || '') && VIDEO_SIZES[size]) return VIDEO_SIZES[size];
+    return size;
+  }
+
+  /** Reads "V2R1" out of an existing name: { v: 2, r: 1 }. null when the name has no version. */
+  function readVersion(name) {
+    var parts = String(name === null || name === undefined ? '' : name).split(SEP);
+    for (var i = parts.length - 1; i >= 0; i--) {
+      var m = /^V(\d{1,3})(?:R(\d{1,3}))?$/i.exec(parts[i].trim());
+      if (m) return { v: Number(m[1]), r: m[2] ? Number(m[2]) : 0 };
+    }
+    return null;
+  }
+
+  function versionText(v, r) {
+    return 'V' + v + (r > 0 ? 'R' + r : '');
+  }
+
+  /** '' when the settings can produce a name, otherwise what is missing. */
+  function validate(settings, pageType) {
+    if (settings.mode === 'marketing') {
+      if (!compact(settings.deliverable)) return 'Add the deliverable type, for example MetaAds.';
+      if (!compact(settings.task, true)) return 'Add the specific task, for example BlackFriday.';
+    } else if (!pageType) {
+      return 'This page’s name can’t be used as a page type. Type one in.';
+    }
+    if (!compact(settings.client)) return 'Add the client name.';
+    return '';
+  }
+
+  function willResize(settings, item) {
+    return settings.mode === 'web' && settings.resize && RESIZABLE.indexOf(item.type) !== -1 && item.width > 0;
+  }
+
+  function smallestFree(used, from) {
+    var n = from;
+    while (used[n]) n++;
+    return n;
   }
 
   /**
    * Works out the new name for every layer.
-   * items: [{ id, name, storedBase, storedApplied }]
-   *   storedBase / storedApplied let a second run start from the layer's original
-   *   page name instead of stacking "Home - Design - Acme - V1 - Design - Acme - V2".
+   *   items:   [{ id, name, type, width, height, x, y }]
+   *   context: { pageName }  — the Figma page the layers are on
+   *
+   * Versions: layers that would otherwise get the same name are numbered left
+   * to right on the canvas. In 'auto' mode a layer that already has a version
+   * keeps it, so re-running (or re-ordering frames) never shuffles versions;
+   * layers without one take the next free number.
    */
-  function plan(rawSettings, items) {
+  function plan(rawSettings, items, context) {
     var settings = normalize(rawSettings);
-    var error = validate(settings);
-    var rows = [];
-    var i, item, base, built;
+    var pageName = context && context.pageName ? context.pageName : '';
+    var autoPageType = pageTypeFrom(pageName);
+    var pageType = compact(settings.pageType) || autoPageType;
+    var error = validate(settings, pageType);
+    var marketing = settings.mode === 'marketing';
+    var client = compact(settings.client);
+    var summary = { desktop: 0, mobile: 0, otherWidth: 0 };
 
-    for (i = 0; i < items.length; i++) {
-      item = items[i];
-      if (item.storedApplied && item.storedBase && item.storedApplied === item.name) base = item.storedBase;
-      else base = (!error && unwrapPage(settings, item.name)) || item.name;
-      built = error ? { name: '', parts: [] } : buildName(settings, base);
-      rows.push({
-        id: item.id,
-        current: item.name,
-        base: base,
-        proposed: built.name,
-        changed: false,
-        note: ''
-      });
+    // Left to right, then top to bottom: the order versions are handed out in, and the order shown.
+    var order = [];
+    for (var i = 0; i < items.length; i++) order.push({ item: items[i], index: i });
+    order.sort(function (a, b) {
+      var ax = Number(a.item.x) || 0, bx = Number(b.item.x) || 0;
+      if (Math.abs(ax - bx) > 0.5) return ax - bx;
+      var ay = Number(a.item.y) || 0, by = Number(b.item.y) || 0;
+      if (Math.abs(ay - by) > 0.5) return ay - by;
+      return a.index - b.index;
+    });
+
+    var rows = [], groups = {};
+    for (var o = 0; o < order.length; o++) {
+      var item = order[o].item;
+      var before = [], after = [], note = '';
+      var device = '', size = '';
+      if (marketing) {
+        size = settings.includeSize ? sizeFor(item.width, item.height, compact(settings.deliverable)) : '';
+        if (size) before.push(size);
+        before.push(compact(settings.deliverable), compact(settings.task, true), client);
+        var variation = compact(settings.variation);
+        if (variation) after.push(variation);
+      } else {
+        var width = willResize(settings, item) ? settings.resizeTarget : item.width;
+        device = deviceFor(width);
+        if (device === 'Desktop') summary.desktop++;
+        else if (device === 'Mobile') summary.mobile++;
+        else {
+          summary.otherWidth++;
+          note = Math.round(Number(item.width) || 0) + ' px wide — no Desktop / Mobile tag';
+        }
+        before.push(pageType);
+        if (device) before.push(device);
+        if (settings.phase) before.push(settings.phase);
+        before.push(client);
+      }
+      var row = {
+        id: item.id, current: item.name, proposed: item.name, changed: false, note: note,
+        device: device, size: size, version: '',
+        _before: before, _after: after, _existing: readVersion(item.name)
+      };
+      rows.push(row);
+      var key = before.join(SEP) + '|' + after.join(SEP);
+      (groups[key] = groups[key] || []).push(row);
     }
 
-    if (!error && settings.numberDuplicates) {
-      var seen = {}, counters = {};
-      for (i = 0; i < rows.length; i++) {
-        if (rows[i].proposed) seen[rows[i].proposed] = (seen[rows[i].proposed] || 0) + 1;
-      }
-      for (i = 0; i < rows.length; i++) {
-        var p = rows[i].proposed;
-        if (p && seen[p] > 1) {
-          counters[p] = (counters[p] || 0) + 1;
-          rows[i].proposed = p + SEPARATORS[settings.separator] + pad2(counters[p]);
+    if (!error) {
+      for (var g in groups) {
+        if (!Object.prototype.hasOwnProperty.call(groups, g)) continue;
+        var list = groups[g], used = {}, r, n;
+
+        if (settings.versionMode === 'set') {
+          for (n = 0; n < list.length; n++) list[n]._v = settings.versionValue + n;
+        } else {
+          // First the layers that already carry a version (kept, or moved up by one)…
+          for (n = 0; n < list.length; n++) {
+            r = list[n];
+            if (!r._existing) continue;
+            var want = r._existing.v + (settings.versionMode === 'next' ? 1 : 0);
+            if (!used[want]) { r._v = want; used[want] = true; }
+          }
+          // …then everything else takes the next free number, left to right.
+          for (n = 0; n < list.length; n++) {
+            r = list[n];
+            if (r._v) continue;
+            r._v = smallestFree(used, 1);
+            used[r._v] = true;
+          }
+        }
+
+        for (n = 0; n < list.length; n++) {
+          r = list[n];
+          var sameVersion = !!r._existing && r._existing.v === r._v;
+          var rev = sameVersion ? r._existing.r : 0;          // a revision belongs to its version
+          if (settings.revisionMode === 'set') rev = settings.revisionValue;
+          else if (settings.revisionMode === 'none') rev = 0;
+          else if (settings.revisionMode === 'next' && sameVersion) rev = rev + 1;
+          r.version = versionText(r._v, rev);
+          r.proposed = r._before.concat([r.version], r._after).join(SEP);
         }
       }
     }
 
     var willRename = 0, unchanged = 0;
-    for (i = 0; i < rows.length; i++) {
-      var row = rows[i];
-      if (error) {
-        row.proposed = row.current;
-        row.note = 'No naming fields set';
-      } else if (!row.proposed) {
-        row.proposed = row.current;
-        row.note = 'Nothing left to name it with';
-      } else if (row.proposed === row.current) {
-        row.note = 'Already named this way';
-      } else {
-        row.changed = true;
-      }
-      if (row.changed) willRename++; else unchanged++;
+    for (var k = 0; k < rows.length; k++) {
+      var row2 = rows[k];
+      if (error) row2.proposed = row2.current;
+      row2.changed = row2.proposed !== row2.current;
+      if (row2.changed) willRename++; else unchanged++;
+      delete row2._before; delete row2._after; delete row2._existing; delete row2._v;
     }
 
     return {
       error: error,
       settings: settings,
+      mode: settings.mode,
+      pageName: pageName,
+      pageType: pageType,
+      autoPageType: autoPageType,
+      summary: summary,
       rows: rows,
       counts: { selected: rows.length, willRename: willRename, unchanged: unchanged }
     };
   }
 
   return {
-    FIELD_KEYS: FIELD_KEYS,
-    FIELD_LABELS: FIELD_LABELS,
-    SEPARATORS: SEPARATORS,
-    RESIZE_WIDTH: RESIZE_WIDTH,
+    PHASES: PHASES,
+    DELIVERABLES: DELIVERABLES,
+    VARIATIONS: VARIATIONS,
+    DEVICES: DEVICES,
+    RESIZABLE: RESIZABLE,
     defaults: defaults,
     normalize: normalize,
+    persistable: persistable,
     stripLeadingDate: stripLeadingDate,
-    capitalizeWords: capitalizeWords,
-    formatVersion: formatVersion,
-    pageFromLayerName: pageFromLayerName,
-    buildName: buildName,
+    compact: compact,
+    pageTypeFrom: pageTypeFrom,
+    deviceFor: deviceFor,
+    sizeFor: sizeFor,
+    readVersion: readVersion,
     validate: validate,
-    unwrapPage: unwrapPage,
+    willResize: willResize,
     plan: plan
   };
 })();
 
 // ---- 20-renamer.js ----
 /*
- * Layer Renamer — reads the selection, previews, applies names, optional resize.
+ * Layer Renamer — reads the selection and the current page, previews, applies
+ * names, and optionally resizes frames to the standard Desktop / Mobile width.
  */
 UK.renamer = (function () {
   var N = UK.naming;
-  var PD_BASE = 'uk.pageBase';        // the layer's name before UtilityKit first renamed it
-  var PD_APPLIED = 'uk.appliedName';  // the name UtilityKit last gave it
+  var PD_ORIGINAL = 'uk.originalName';   // the layer's name before UtilityKit first renamed it
   var MAX_ROWS_TO_UI = 300;
 
   function readItem(node) {
-    var base = '', applied = '';
-    try {
-      base = node.getPluginData(PD_BASE) || '';
-      applied = node.getPluginData(PD_APPLIED) || '';
-    } catch (e) { /* some nodes cannot hold plugin data; that is fine */ }
-    return { id: node.id, name: node.name, type: node.type, storedBase: base, storedApplied: applied };
+    var box = null;
+    try { box = node.absoluteBoundingBox; } catch (e) { box = null; }
+    return {
+      id: node.id,
+      name: node.name,
+      type: node.type,
+      width: typeof node.width === 'number' ? node.width : 0,
+      height: typeof node.height === 'number' ? node.height : 0,
+      x: box ? box.x : (typeof node.x === 'number' ? node.x : 0),
+      y: box ? box.y : (typeof node.y === 'number' ? node.y : 0)
+    };
   }
 
   /** What resizing would do to one node, without doing it. */
-  function resizePlan(node, mode) {
+  function resizePlan(node, settings) {
+    var target = settings.resizeTarget, mode = settings.resizeMode;
+    if (N.RESIZABLE.indexOf(node.type) === -1) return { action: 'skip', reason: 'Only frames are resized' };
     var w = node.width, h = node.height;
     if (typeof w !== 'number' || typeof h !== 'number' || !(w > 0) || !(h > 0)) {
       return { action: 'skip', reason: 'This layer has no size to change' };
@@ -504,16 +583,16 @@ UK.renamer = (function () {
     if (typeof node.resize !== 'function' && typeof node.rescale !== 'function' && typeof node.resizeWithoutConstraints !== 'function') {
       return { action: 'skip', reason: 'This layer type can’t be resized' };
     }
-    if (Math.abs(w - N.RESIZE_WIDTH) < 0.01) return { action: 'none' };
-    var toHeight = mode === 'width' ? h : h * (N.RESIZE_WIDTH / w);
-    return { action: 'resize', toWidth: N.RESIZE_WIDTH, toHeight: toHeight, fromWidth: w, fromHeight: h };
+    if (Math.abs(w - target) < 0.01) return { action: 'none' };
+    var toHeight = mode === 'width' ? h : h * (target / w);
+    return { action: 'resize', toWidth: target, toHeight: toHeight, fromWidth: w, fromHeight: h };
   }
 
-  function resizeNode(node, mode) {
-    var rp = resizePlan(node, mode);
+  function resizeNode(node, settings) {
+    var rp = resizePlan(node, settings);
     if (rp.action !== 'resize') return rp;
-    if (mode === 'scale' && typeof node.rescale === 'function') {
-      node.rescale(N.RESIZE_WIDTH / node.width);
+    if (settings.resizeMode === 'scale' && typeof node.rescale === 'function') {
+      node.rescale(rp.toWidth / node.width);
     } else if (typeof node.resize === 'function') {
       node.resize(rp.toWidth, Math.max(0.01, rp.toHeight));
     } else {
@@ -525,17 +604,21 @@ UK.renamer = (function () {
   function round(n) { return Math.round(n * 100) / 100; }
 
   function buildPreview(rawSettings, nodes, limit) {
-    var items = [];
-    for (var i = 0; i < nodes.length; i++) items.push(readItem(nodes[i]));
-    var p = N.plan(rawSettings, items);
+    var byId = {}, items = [];
+    for (var i = 0; i < nodes.length; i++) {
+      var item = readItem(nodes[i]);
+      items.push(item);
+      byId[item.id] = nodes[i];
+    }
+    var p = N.plan(rawSettings, items, { pageName: figma.currentPage.name });
     var settings = p.settings;
+    var resizing = settings.mode === 'web' && settings.resize;
 
     var willResize = 0, resizeSkipped = 0;
-    for (var j = 0; j < p.rows.length; j++) {
-      var row = p.rows[j];
-      row.type = items[j].type;
-      if (settings.resize) {
-        var rp = resizePlan(nodes[j], settings.resizeMode);
+    if (resizing && !p.error) {
+      for (var j = 0; j < p.rows.length; j++) {
+        var row = p.rows[j];
+        var rp = resizePlan(byId[row.id], settings);
         if (rp.action === 'resize') {
           willResize++;
           row.resize = round(rp.fromWidth) + ' × ' + round(rp.fromHeight) + ' → ' + round(rp.toWidth) + ' × ' + round(rp.toHeight);
@@ -549,6 +632,11 @@ UK.renamer = (function () {
     var max = typeof limit === 'number' ? limit : MAX_ROWS_TO_UI;
     return {
       error: p.error,
+      mode: p.mode,
+      pageName: p.pageName,
+      pageType: p.pageType,
+      autoPageType: p.autoPageType,
+      summary: p.summary,
       counts: {
         selected: p.counts.selected,
         willRename: p.counts.willRename,
@@ -556,7 +644,8 @@ UK.renamer = (function () {
         willResize: willResize,
         resizeSkipped: resizeSkipped
       },
-      resize: settings.resize,
+      resize: resizing,
+      resizeTarget: settings.resizeTarget,
       rows: p.rows.slice(0, max),
       hiddenRows: Math.max(0, p.rows.length - max),
       // Every id + proposed name, so Apply can prove nothing moved under the preview.
@@ -566,13 +655,13 @@ UK.renamer = (function () {
 
   function preview(payload) {
     payload = payload || {};
-    var nodes = figma.currentPage.selection.slice();
-    return buildPreview(payload.settings, nodes, payload.limit);
+    return buildPreview(payload.settings, figma.currentPage.selection.slice(), payload.limit);
   }
 
   /**
-   * Applies exactly what the designer saw. If any layer was deleted or renamed
-   * since the preview, nothing is changed and a fresh preview is returned.
+   * Applies exactly what the designer saw. If any layer was deleted, renamed,
+   * moved or resized since the preview (so its name would now come out
+   * differently), nothing is changed and a fresh preview is returned.
    */
   async function apply(payload) {
     payload = payload || {};
@@ -580,47 +669,49 @@ UK.renamer = (function () {
     if (!expected.length) throw UK.userError('Select at least one layer to rename.');
 
     var settings = N.normalize(payload.settings);
-    var problem = N.validate(settings);
-    if (problem) throw UK.userError(problem);
-
-    var nodes = [], missing = 0, i;
+    var nodes = [], byId = {}, missing = 0, i;
     for (i = 0; i < expected.length; i++) {
       var node = await figma.getNodeByIdAsync(expected[i].id);
-      if (!node || node.removed) missing++; else nodes.push(node);
+      if (!node || node.removed) missing++;
+      else { nodes.push(node); byId[node.id] = node; }
     }
     if (!nodes.length) throw UK.userError('Those layers no longer exist. Select layers and preview again.');
 
     var fresh = buildPreview(settings, nodes, MAX_ROWS_TO_UI);
+    if (fresh.error) throw UK.userError(fresh.error);
+
+    var wanted = {};
+    for (i = 0; i < expected.length; i++) wanted[expected[i].id] = expected[i].proposed;
     var stale = missing > 0 || fresh.expected.length !== expected.length;
-    for (i = 0; !stale && i < expected.length; i++) {
-      if (fresh.expected[i].id !== expected[i].id || fresh.expected[i].proposed !== expected[i].proposed) stale = true;
+    for (i = 0; !stale && i < fresh.expected.length; i++) {
+      if (wanted[fresh.expected[i].id] !== fresh.expected[i].proposed) stale = true;
     }
     if (stale) return { stale: true, preview: fresh };
 
-    var items = nodes.map(readItem);
-    var p = N.plan(settings, items);
     var renamed = 0, unchanged = 0, resized = 0;
     var failed = [], resizeSkipped = [];
+    var resizing = settings.mode === 'web' && settings.resize;
 
-    for (i = 0; i < nodes.length; i++) {
-      var n = nodes[i], row = p.rows[i];
-      if (row.changed) {
+    for (i = 0; i < fresh.expected.length; i++) {
+      var n = byId[fresh.expected[i].id];
+      var proposed = fresh.expected[i].proposed;
+      var before = n.name;
+      if (proposed !== before) {
         try {
-          n.name = row.proposed;
+          n.name = proposed;
           renamed++;
           try {
-            n.setPluginData(PD_BASE, row.base);
-            n.setPluginData(PD_APPLIED, row.proposed);
+            if (!n.getPluginData(PD_ORIGINAL)) n.setPluginData(PD_ORIGINAL, before);
           } catch (e1) { /* naming worked; remembering the original is optional */ }
         } catch (e2) {
-          failed.push({ name: row.current, reason: UK.describeError(e2) });
+          failed.push({ name: before, reason: UK.describeError(e2) });
         }
       } else {
         unchanged++;
       }
-      if (settings.resize) {
+      if (resizing) {
         try {
-          var rp = resizeNode(n, settings.resizeMode);
+          var rp = resizeNode(n, settings);
           if (rp.action === 'resize') resized++;
           else if (rp.action === 'skip') resizeSkipped.push({ name: n.name, reason: rp.reason });
         } catch (e3) {
@@ -633,7 +724,7 @@ UK.renamer = (function () {
 
     var summary = renamed === 0 && resized === 0
       ? 'Nothing needed changing'
-      : 'Renamed ' + UK.plural(renamed, 'layer') + (settings.resize ? ', resized ' + resized : '');
+      : 'Renamed ' + UK.plural(renamed, 'layer') + (resizing ? ', resized ' + resized : '');
     UK.notify(failed.length ? summary + ' — ' + failed.length + ' failed' : summary, failed.length > 0 && renamed === 0);
 
     return {
@@ -641,7 +732,8 @@ UK.renamer = (function () {
       renamed: renamed,
       unchanged: unchanged,
       resized: resized,
-      resizeRequested: settings.resize,
+      resizeRequested: resizing,
+      resizeTarget: settings.resizeTarget,
       failed: failed.slice(0, 20),
       failedCount: failed.length,
       resizeSkipped: resizeSkipped.slice(0, 20),
@@ -1574,8 +1666,8 @@ UK.updates = (function () {
  */
 (function () {
   var STORAGE_KEY = 'utilitykit.settings.v1';   // per designer, across files
-  var FILE_KEY = 'utilitykit.file.v1';          // per file: client / phase / version
-  var FILE_FIELDS = ['client', 'phase', 'version'];
+  var FILE_KEY = 'utilitykit.file.v1';          // per file: client and the other project-level naming choices
+  var FILE_FIELDS = ['client', 'phase', 'mode', 'deliverable', 'task'];
   var SIZE = { width: 360, height: 600, minW: 300, maxW: 560, minH: 440, maxH: 900 };
 
   function readFileData() {
@@ -1594,7 +1686,7 @@ UK.updates = (function () {
     var file = readFileData();
     var merged = {}, key;
     for (key in renamer) { if (Object.prototype.hasOwnProperty.call(renamer, key)) merged[key] = renamer[key]; }
-    // A file remembers its own client, phase and version; they win over "last used".
+    // A file remembers its own client and project choices; they win over "last used".
     for (var i = 0; i < FILE_FIELDS.length; i++) {
       if (typeof file[FILE_FIELDS[i]] === 'string') merged[FILE_FIELDS[i]] = file[FILE_FIELDS[i]];
     }
@@ -1609,14 +1701,14 @@ UK.updates = (function () {
   async function saveSettings(payload) {
     payload = payload || {};
     var data = {
-      renamer: UK.naming.normalize(payload.renamer),
+      renamer: UK.naming.persistable(payload.renamer),
       flatten: { scale: payload.flatten && UK.flatten.SCALES.indexOf(Number(payload.flatten.scale)) !== -1 ? Number(payload.flatten.scale) : 2 }
     };
     await figma.clientStorage.setAsync(STORAGE_KEY, data);
     return { saved: true };
   }
 
-  /** Remembers client / phase / version inside the file, only when they changed. */
+  /** Remembers the client and project-level naming choices inside the file, only when they changed. */
   function saveFileData(settings) {
     try {
       var current = readFileData();
@@ -1646,13 +1738,12 @@ UK.updates = (function () {
         install: UK.updates.installInfo(),
         settings: await loadSettings(),
         selection: selectionInfo(),
-        fields: UK.naming.FIELD_LABELS,
-        resizeWidth: UK.naming.RESIZE_WIDTH,
+        naming: { phases: UK.naming.PHASES, deliverables: UK.naming.DELIVERABLES, variations: UK.naming.VARIATIONS, devices: UK.naming.DEVICES },
         scales: UK.flatten.SCALES
       };
     },
     'settings.save': saveSettings,
-    /** Puts this designer's saved choices back to the defaults. Files keep their own client / phase / version. */
+    /** Puts this designer's saved choices back to the defaults. Files keep their own client and project choices. */
     'settings.reset': async function () {
       var fresh = { renamer: UK.naming.defaults(), flatten: { scale: 2 } };
       await figma.clientStorage.setAsync(STORAGE_KEY, fresh);

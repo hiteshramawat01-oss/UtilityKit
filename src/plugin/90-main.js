@@ -5,8 +5,8 @@
  */
 (function () {
   var STORAGE_KEY = 'utilitykit.settings.v1';   // per designer, across files
-  var FILE_KEY = 'utilitykit.file.v1';          // per file: client / phase / version
-  var FILE_FIELDS = ['client', 'phase', 'version'];
+  var FILE_KEY = 'utilitykit.file.v1';          // per file: client and the other project-level naming choices
+  var FILE_FIELDS = ['client', 'phase', 'mode', 'deliverable', 'task'];
   var SIZE = { width: 360, height: 600, minW: 300, maxW: 560, minH: 440, maxH: 900 };
 
   function readFileData() {
@@ -25,7 +25,7 @@
     var file = readFileData();
     var merged = {}, key;
     for (key in renamer) { if (Object.prototype.hasOwnProperty.call(renamer, key)) merged[key] = renamer[key]; }
-    // A file remembers its own client, phase and version; they win over "last used".
+    // A file remembers its own client and project choices; they win over "last used".
     for (var i = 0; i < FILE_FIELDS.length; i++) {
       if (typeof file[FILE_FIELDS[i]] === 'string') merged[FILE_FIELDS[i]] = file[FILE_FIELDS[i]];
     }
@@ -40,14 +40,14 @@
   async function saveSettings(payload) {
     payload = payload || {};
     var data = {
-      renamer: UK.naming.normalize(payload.renamer),
+      renamer: UK.naming.persistable(payload.renamer),
       flatten: { scale: payload.flatten && UK.flatten.SCALES.indexOf(Number(payload.flatten.scale)) !== -1 ? Number(payload.flatten.scale) : 2 }
     };
     await figma.clientStorage.setAsync(STORAGE_KEY, data);
     return { saved: true };
   }
 
-  /** Remembers client / phase / version inside the file, only when they changed. */
+  /** Remembers the client and project-level naming choices inside the file, only when they changed. */
   function saveFileData(settings) {
     try {
       var current = readFileData();
@@ -77,13 +77,12 @@
         install: UK.updates.installInfo(),
         settings: await loadSettings(),
         selection: selectionInfo(),
-        fields: UK.naming.FIELD_LABELS,
-        resizeWidth: UK.naming.RESIZE_WIDTH,
+        naming: { phases: UK.naming.PHASES, deliverables: UK.naming.DELIVERABLES, variations: UK.naming.VARIATIONS, devices: UK.naming.DEVICES },
         scales: UK.flatten.SCALES
       };
     },
     'settings.save': saveSettings,
-    /** Puts this designer's saved choices back to the defaults. Files keep their own client / phase / version. */
+    /** Puts this designer's saved choices back to the defaults. Files keep their own client and project choices. */
     'settings.reset': async function () {
       var fresh = { renamer: UK.naming.defaults(), flatten: { scale: 2 } };
       await figma.clientStorage.setAsync(STORAGE_KEY, fresh);

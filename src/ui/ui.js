@@ -103,7 +103,6 @@
     screen: 'home',
     selection: { count: 0, names: [] },
     settings: null,          // renamer settings (shape defined by the plugin logic)
-    fields: { page: 'Page', phase: 'Design Phase', client: 'Client', version: 'Version' },
     flatten: { scale: 2, replace: false, summary: null, result: null, pendingMode: null, busy: false },
     preview: null,
     applied: null,
@@ -111,13 +110,13 @@
     drive: null,
     driveBusy: false,
     version: '',
+    autoPageType: '',        // the page type read from the current Figma page
     install: null,           // which copy is running: the plugin folder's, or a downloaded update
     installing: false
   };
 
   var TITLES = { renamer: 'Layer Renamer', preview: 'Rename Preview', flatten: 'Flatten & Merge', drive: 'Google Drive Links', settings: 'Settings' };
   var PARENT = { renamer: 'home', flatten: 'home', drive: 'home', preview: 'renamer' };
-  var PLACEHOLDERS = { page: 'e.g. Home', phase: 'e.g. Design', client: 'Client name', version: 'e.g. 1' };
 
   // ── toast / notes ───────────────────────────────────────────────────────
 
@@ -224,58 +223,6 @@
     saveSettingsSoon();
   }
 
-  function renderFields() {
-    var s = state.settings;
-    var wrap = clear($('rnFields'));
-    s.order.forEach(function (key, index) {
-      var on = !!s.enabled[key];
-      var input;
-      var extra = null;
-
-      if (key === 'page') {
-        input = h('select', { class: 'select', 'aria-label': 'Page name source', disabled: !on, onchange: function (e) {
-          s.pageSource = e.target.value; renderFields(); settingsChanged();
-        } },
-          h('option', { value: 'layer' }, 'Layer name'),
-          h('option', { value: 'custom' }, 'Custom text'));
-        input.value = s.pageSource;
-        if (s.pageSource === 'custom') {
-          extra = h('input', { class: 'input field-extra', type: 'text', value: s.page, placeholder: PLACEHOLDERS.page, 'aria-label': 'Page name', maxlength: 120, disabled: !on,
-            oninput: function (e) { s.page = e.target.value; settingsChanged(); } });
-        }
-      } else {
-        input = h('input', { class: 'input', type: 'text', value: s[key], placeholder: PLACEHOLDERS[key], 'aria-label': state.fields[key], maxlength: 120, disabled: !on,
-          list: key === 'phase' ? 'rnPhases' : null,
-          oninput: function (e) { s[key] = e.target.value; settingsChanged(); } });
-      }
-
-      var toggle = h('label', { class: 'switch', title: on ? 'Included in the name' : 'Left out of the name' },
-        h('input', { type: 'checkbox', checked: on, 'aria-label': 'Include ' + state.fields[key], onchange: function (e) {
-          s.enabled[key] = e.target.checked; renderFields(); settingsChanged();
-        } }), h('span'));
-
-      var move = h('span', { class: 'move' },
-        h('button', { class: 'icon-btn', type: 'button', icon: 'up', title: 'Move earlier', 'aria-label': 'Move ' + state.fields[key] + ' earlier', disabled: index === 0,
-          onclick: function () { swap(index, index - 1); } }),
-        h('button', { class: 'icon-btn', type: 'button', icon: 'down', title: 'Move later', 'aria-label': 'Move ' + state.fields[key] + ' later', disabled: index === s.order.length - 1,
-          onclick: function () { swap(index, index + 1); } }));
-
-      wrap.appendChild(h('div', { class: 'field' + (on ? '' : ' off'), 'data-key': key },
-        toggle, h('span', { class: 'field-label' }, state.fields[key]), input, move, extra));
-    });
-    if (!$('rnPhases')) {
-      document.body.appendChild(h('datalist', { id: 'rnPhases' },
-        ['Wireframe', 'Design', 'Revision', 'Final'].map(function (v) { return h('option', { value: v }); })));
-    }
-  }
-
-  function swap(a, b) {
-    var order = state.settings.order;
-    var t = order[a]; order[a] = order[b]; order[b] = t;
-    renderFields();
-    settingsChanged();
-  }
-
   function setSeg(container, value) {
     var buttons = container.querySelectorAll('button');
     for (var i = 0; i < buttons.length; i++) {
@@ -285,18 +232,61 @@
     }
   }
 
+  function fillList(id, values) {
+    var list = $(id);
+    if (!list) { list = h('datalist', { id: id }); document.body.appendChild(list); }
+    clear(list);
+    (values || []).forEach(function (v) { list.appendChild(h('option', { value: v })); });
+  }
+
+  /** Puts the saved choices into the Layer Renamer controls. */
   function renderRenamerOptions() {
     var s = state.settings;
-    $('rnCapitalize').checked = s.capitalize;
-    $('rnStripDate').checked = s.stripDate;
-    $('rnVersionPrefix').checked = s.versionPrefix;
-    $('rnNumber').checked = s.numberDuplicates;
+    var marketing = s.mode === 'marketing';
+    setSeg($('rnMode'), s.mode);
+    $('rnWeb').hidden = marketing;
+    $('rnMarketing').hidden = !marketing;
+    $('rnAdvanced').hidden = marketing;
+
+    $('rnPageType').value = s.pageType || state.autoPageType || '';
+    setSeg($('rnPhase'), s.phase);
+    $('rnIncludeSize').checked = s.includeSize;
+    $('rnDeliverable').value = s.deliverable;
+    $('rnTask').value = s.task;
+    $('rnVariation').value = s.variation;
+    $('rnClient').value = s.client;
+
+    $('rnVersionMode').value = s.versionMode;
+    $('rnVersionValue').hidden = s.versionMode !== 'set';
+    $('rnVersionValue').value = s.versionValue;
+    $('rnRevisionMode').value = s.versionMode === 'next' && s.revisionMode !== 'set' ? 'none' : s.revisionMode;
+    $('rnRevisionMode').disabled = false;
+    $('rnRevisionValue').hidden = s.revisionMode !== 'set';
+    $('rnRevisionValue').value = s.revisionValue;
+    $('rnVersionHelp').textContent =
+      s.versionMode === 'auto' ? 'Frames that already have a version keep it. New frames are numbered left to right: V1, V2, V3.'
+      : s.versionMode === 'next' ? 'Every frame moves up one version and starts again without a revision.'
+      : 'Frames are numbered left to right starting at V' + s.versionValue + '.';
+
     $('rnResize').checked = s.resize;
     $('rnResizeModes').hidden = !s.resize;
-    setSeg($('rnSeparator'), s.separator);
+    setSeg($('rnResizeTarget'), s.resizeTarget);
     var radios = document.getElementsByName('rnResizeMode');
     for (var i = 0; i < radios.length; i++) radios[i].checked = radios[i].value === s.resizeMode;
     if (s.resize) $('rnAdvanced').open = true;
+  }
+
+  function renderVersionHelpOnly() {
+    $('rnVersionHelp').textContent = 'Frames are numbered left to right starting at V' + state.settings.versionValue + '.';
+  }
+
+  function devicesText(summary, selected) {
+    if (!selected) return 'Desktop at 1600 px wide, Mobile at 320 px';
+    var bits = [];
+    if (summary.desktop) bits.push(summary.desktop + ' Desktop');
+    if (summary.mobile) bits.push(summary.mobile + ' Mobile');
+    if (summary.otherWidth) bits.push(summary.otherWidth + ' other width (no tag)');
+    return bits.join(' · ');
   }
 
   function refreshExample() {
@@ -306,20 +296,32 @@
       if (mine !== exampleSeq) return;          // a newer request is on its way
       var box = $('rnExample'), name = $('rnExampleName'), from = $('rnExampleFrom');
       var btn = $('rnPreviewBtn');
+
+      // what was read from the page and the selection
+      state.autoPageType = p.autoPageType || '';
+      var pageInput = $('rnPageType');
+      pageInput.placeholder = p.autoPageType || 'Type a page type';
+      // Show the page's own name in the box unless the designer typed something else.
+      if (!state.settings.pageType && document.activeElement !== pageInput) pageInput.value = state.autoPageType;
+      $('rnPageHint').textContent = p.autoPageType
+        ? 'Read from this page, “' + p.pageName + '”. Type here to change it.'
+        : 'The page “' + p.pageName + '” has no usable name. Type a page type.';
+      $('rnDevices').textContent = devicesText(p.summary, p.counts.selected);
+
+      if (!p.counts.selected) {
+        box.classList.add('is-empty');
+        name.textContent = 'Select frames on the canvas';
+        from.textContent = 'The new name will show here.';
+        btn.disabled = true;
+        btn.textContent = 'Select frames to rename';
+        return;
+      }
       if (p.error) {
         box.classList.add('is-empty');
-        name.textContent = 'Add at least one field';
+        name.textContent = p.error;
         from.textContent = '';
         btn.disabled = true;
         btn.textContent = 'Preview changes';
-        return;
-      }
-      if (!p.counts.selected) {
-        box.classList.add('is-empty');
-        name.textContent = 'Select layers on the canvas';
-        from.textContent = 'The new name will show here as you type.';
-        btn.disabled = true;
-        btn.textContent = 'Select layers to rename';
         return;
       }
       var row = p.rows[0];
@@ -368,7 +370,7 @@
       var bits = [];
       if (done.renamed) bits.push('Renamed ' + plural(done.renamed, 'layer') + '.');
       else bits.push('No names needed changing.');
-      if (done.resizeRequested) bits.push('Resized ' + plural(done.resized, 'layer') + ' to 1600 px wide.');
+      if (done.resizeRequested) bits.push('Resized ' + plural(done.resized, 'frame') + ' to ' + done.resizeTarget + ' px wide.');
       bits.push('Undo with ⌘Z / Ctrl+Z.');
       banner.appendChild(note('success', 'Done', [bits.join(' ')]));
       if (done.failedCount) {
@@ -383,11 +385,11 @@
       if (state.previewNotice) banner.appendChild(note('info', '', [state.previewNotice]));
       if (p.resize) {
         banner.appendChild(note(p.counts.resizeSkipped ? 'warn' : 'info', '',
-          [plural(p.counts.willResize, 'layer') + ' will be resized to 1600 px wide' +
+          [plural(p.counts.willResize, 'frame') + ' will be resized to ' + p.resizeTarget + ' px wide' +
             (p.counts.resizeSkipped ? '; ' + p.counts.resizeSkipped + ' can’t be resized.' : '.')]));
       }
       if (!p.counts.willRename && !(p.resize && p.counts.willResize)) {
-        banner.appendChild(note('info', 'Nothing to change', ['Every selected layer already has this name.']));
+        banner.appendChild(note('info', 'Nothing to change', ['Every selected layer already has the right name.']));
       }
     }
     banner.style.display = banner.firstChild ? 'flex' : 'none';
@@ -401,7 +403,7 @@
     p.rows.forEach(function (row) {
       var meta = [];
       if (!row.changed) meta.push(h('span', { class: 'tag' }, 'No change'));
-      if (!row.changed && row.note && row.note !== 'Already named this way') meta.push(h('span', null, row.note));
+      if (row.note) meta.push(h('span', null, row.note));
       if (row.resize) meta.push(h('span', null, row.resize));
       if (row.resizeNote && p.resize) meta.push(h('span', null, 'Size kept: ' + row.resizeNote));
       var failed = done && row.changed && failedNames[row.current];
@@ -449,6 +451,10 @@
       }
       state.applied = res;
       state.previewNotice = '';
+      // "Next version" and friends are one-off actions; don't leave them armed.
+      state.settings.versionMode = 'auto';
+      state.settings.revisionMode = 'keep';
+      renderRenamerOptions();
       renderPreview();
       document.querySelector('[data-screen="preview"] .scroll').scrollTop = 0;
     }).catch(function (err) { setBusy(btn, false); renderPreview(); fail(err); });
@@ -833,7 +839,6 @@
       state.flatten.scale = fresh.flatten.scale;
       state.preview = null;
       state.applied = null;
-      renderFields();
       renderRenamerOptions();
       $('rnAdvanced').open = false;
       $('stResetConfirm').hidden = true;
@@ -863,20 +868,50 @@
     });
 
     // renamer
-    var flags = { rnCapitalize: 'capitalize', rnStripDate: 'stripDate', rnVersionPrefix: 'versionPrefix', rnNumber: 'numberDuplicates', rnResize: 'resize' };
-    Object.keys(flags).forEach(function (id) {
-      $(id).addEventListener('change', function (e) {
-        state.settings[flags[id]] = e.target.checked;
+    var seg = function (id, key, cast) {
+      $(id).addEventListener('click', function (e) {
+        var b = e.target.closest('button');
+        if (!b) return;
+        state.settings[key] = cast ? cast(b.getAttribute('data-value')) : b.getAttribute('data-value');
         renderRenamerOptions();
         settingsChanged();
       });
+    };
+    seg('rnMode', 'mode');
+    seg('rnPhase', 'phase');
+    seg('rnResizeTarget', 'resizeTarget', Number);
+
+    // Page type: typing the page's own name (or nothing) means "read it from the page".
+    $('rnPageType').addEventListener('input', function (e) {
+      var v = e.target.value;
+      state.settings.pageType = v.trim() === '' || v === state.autoPageType ? '' : v;
+      settingsChanged();
     });
-    $('rnSeparator').addEventListener('click', function (e) {
-      var b = e.target.closest('button');
-      if (!b) return;
-      state.settings.separator = b.getAttribute('data-value');
+    $('rnPageType').addEventListener('blur', function (e) {
+      if (!state.settings.pageType) e.target.value = state.autoPageType || '';
+    });
+    var typed = { rnClient: 'client', rnDeliverable: 'deliverable', rnTask: 'task', rnVariation: 'variation' };
+    Object.keys(typed).forEach(function (id) {
+      $(id).addEventListener('input', function (e) { state.settings[typed[id]] = e.target.value; settingsChanged(); });
+    });
+    var ticks = { rnIncludeSize: 'includeSize', rnResize: 'resize' };
+    Object.keys(ticks).forEach(function (id) {
+      $(id).addEventListener('change', function (e) { state.settings[ticks[id]] = e.target.checked; renderRenamerOptions(); settingsChanged(); });
+    });
+    $('rnVersionMode').addEventListener('change', function (e) {
+      state.settings.versionMode = e.target.value;
+      if (e.target.value === 'next' && state.settings.revisionMode !== 'set') state.settings.revisionMode = 'none';
+      if (e.target.value !== 'next' && state.settings.revisionMode === 'none') state.settings.revisionMode = 'keep';
       renderRenamerOptions();
       settingsChanged();
+    });
+    $('rnRevisionMode').addEventListener('change', function (e) { state.settings.revisionMode = e.target.value; renderRenamerOptions(); settingsChanged(); });
+    var numbers = { rnVersionValue: 'versionValue', rnRevisionValue: 'revisionValue' };
+    Object.keys(numbers).forEach(function (id) {
+      $(id).addEventListener('input', function (e) {
+        var n = Math.round(Number(e.target.value));
+        if (n >= 1 && n <= 999) { state.settings[numbers[id]] = n; settingsChanged(); if (id === 'rnVersionValue') renderVersionHelpOnly(); }
+      });
     });
     var modes = document.getElementsByName('rnResizeMode');
     for (var m = 0; m < modes.length; m++) {
@@ -940,15 +975,14 @@
     call('init').then(function (data) {
       state.settings = data.settings.renamer;
       state.flatten.scale = data.settings.flatten.scale;
-      state.fields = data.fields || state.fields;
+      fillList('rnDeliverables', data.naming && data.naming.deliverables);
+      fillList('rnVariations', data.naming && data.naming.variations);
       state.selection = data.selection;
       $('version').textContent = 'v' + data.version;
       state.version = data.version;
       state.install = data.install || null;
       renderInstall();
-      $('rnResizeW').textContent = data.resizeWidth;
       renderSelection();
-      renderFields();
       renderRenamerOptions();
       if (state.install && state.install.note) toast(state.install.note, true);
     }).catch(fail);

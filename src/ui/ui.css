@@ -137,14 +137,18 @@ i[data-icon] { display: inline-flex; width: 16px; height: 16px; flex: none; }
 .example.is-empty .example-name { font-weight: 500; color: var(--muted); }
 
 /* ── naming fields ── */
-.fields { display: flex; flex-direction: column; gap: 6px; }
-.field { display: grid; grid-template-columns: 28px 86px minmax(0, 1fr) auto; align-items: center; column-gap: 8px; row-gap: 6px; }
-.field.off .field-label { color: var(--faint); }
-.field.off .input { opacity: .5; }
-.field-label { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.field-extra { grid-column: 3 / 4; }
-.move { display: inline-flex; }
-.move .icon-btn { width: 20px; height: 28px; }
+.rows { display: flex; flex-direction: column; gap: 8px; }
+.frow { display: grid; grid-template-columns: 86px minmax(0, 1fr); align-items: center; column-gap: 8px; row-gap: 4px; }
+.frow-label { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.frow-value { color: var(--muted); min-width: 0; }
+.frow-hint { color: var(--faint); font-size: 11px; line-height: 1.4; margin: -4px 0 0 94px; overflow-wrap: anywhere; }
+.card > .frow-hint { margin-top: -2px; }
+.frow-pair { display: flex; gap: 6px; min-width: 0; }
+.frow-pair .select { flex: 1; }
+.input.num { width: 58px; flex: none; text-align: center; padding: 0 4px; }
+.frow .seg { justify-self: start; max-width: 100%; }
+.seg-wide { display: flex; flex: none; }
+.seg-wide button { flex: 1; height: 26px; font-size: 12px; }
 
 .switch { position: relative; width: 28px; height: 16px; flex: none; cursor: pointer; }
 .switch input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
@@ -280,9 +284,9 @@ html.figma-dark .toast.error { background: #D9473E; color: #fff; }
 /* ── narrow plugin windows ── */
 @media (max-width: 339px) {
   .scroll { padding: 10px; }
-  .field { grid-template-columns: 28px minmax(0, 1fr) auto; }
-  .field > .input, .field > .select { grid-column: 1 / -1; grid-row: 2; }
-  .field-extra { grid-column: 1 / -1; }
+  .frow { grid-template-columns: minmax(0, 1fr); }
+  .frow-hint { margin-left: 0; }
+  .frow .seg { display: flex; justify-self: stretch; }
   .opt { flex-direction: column; align-items: stretch; gap: 6px; }
   .seg { display: flex; }
   .seg button { flex: 1; padding: 0 4px; min-width: 0; }

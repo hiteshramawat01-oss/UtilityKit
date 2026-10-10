@@ -57,40 +57,83 @@
     <!-- ───────────── Layer Renamer ───────────── -->
     <section class="screen" data-screen="renamer" hidden>
       <div class="scroll">
+        <div class="seg seg-wide" id="rnMode" role="radiogroup" aria-label="Type of work">
+          <button type="button" data-value="web">Web</button>
+          <button type="button" data-value="marketing">Marketing</button>
+        </div>
+
         <div class="card">
-          <div class="card-head"><h2>Name format</h2><span class="hint">Empty fields are left out</span></div>
           <div class="example" id="rnExample">
             <span class="example-label">Live preview</span>
             <span class="example-name" id="rnExampleName">—</span>
             <span class="example-from" id="rnExampleFrom"></span>
           </div>
-          <div class="fields" id="rnFields"></div>
+
+          <div class="rows" id="rnWeb">
+            <label class="frow"><span class="frow-label">Page type</span>
+              <input class="input" id="rnPageType" type="text" maxlength="80" autocomplete="off" spellcheck="false"></label>
+            <p class="frow-hint" id="rnPageHint"></p>
+            <div class="frow"><span class="frow-label">Device</span><span class="frow-value" id="rnDevices"></span></div>
+            <div class="frow"><span class="frow-label">Design phase</span>
+              <div class="seg" id="rnPhase" role="radiogroup" aria-label="Design phase">
+                <button type="button" data-value="">None</button>
+                <button type="button" data-value="Wireframes">Wireframes</button>
+                <button type="button" data-value="Mockups">Mockups</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="rows" id="rnMarketing" hidden>
+            <label class="check"><input type="checkbox" id="rnIncludeSize"><span class="box"></span><span>Start with the size, read from each frame</span></label>
+            <label class="frow"><span class="frow-label">Deliverable</span>
+              <input class="input" id="rnDeliverable" type="text" list="rnDeliverables" placeholder="e.g. MetaAds" maxlength="80" autocomplete="off" spellcheck="false"></label>
+            <label class="frow"><span class="frow-label">Specific task</span>
+              <input class="input" id="rnTask" type="text" placeholder="e.g. Black Friday" maxlength="80" autocomplete="off"></label>
+            <label class="frow"><span class="frow-label">Variation</span>
+              <input class="input" id="rnVariation" type="text" list="rnVariations" placeholder="Optional, e.g. A" maxlength="40" autocomplete="off" spellcheck="false"></label>
+          </div>
+
+          <label class="frow"><span class="frow-label">Client</span>
+            <input class="input" id="rnClient" type="text" placeholder="Client name" maxlength="120" autocomplete="off"></label>
         </div>
 
         <div class="card">
-          <div class="card-head"><h2>Formatting</h2></div>
-          <label class="check"><input type="checkbox" id="rnCapitalize"><span class="box"></span><span>Capitalize Each Word</span></label>
-          <label class="check"><input type="checkbox" id="rnStripDate"><span class="box"></span><span>Remove leading date <code>YYYY-MM</code></span></label>
+          <div class="card-head"><h2>Version</h2></div>
+          <div class="frow"><span class="frow-label">Version</span>
+            <div class="frow-pair">
+              <select class="select" id="rnVersionMode" aria-label="Version">
+                <option value="auto">Automatic</option>
+                <option value="next">Next version (+1)</option>
+                <option value="set">Start at…</option>
+              </select>
+              <input class="input num" id="rnVersionValue" type="number" min="1" max="999" aria-label="Version number" hidden>
+            </div>
+          </div>
+          <div class="frow"><span class="frow-label">Revision</span>
+            <div class="frow-pair">
+              <select class="select" id="rnRevisionMode" aria-label="Revision">
+                <option value="keep">Keep as it is</option>
+                <option value="next">Next revision (+1)</option>
+                <option value="none">No revision</option>
+                <option value="set">Set to…</option>
+              </select>
+              <input class="input num" id="rnRevisionValue" type="number" min="1" max="999" aria-label="Revision number" hidden>
+            </div>
+          </div>
+          <p class="frow-hint" id="rnVersionHelp"></p>
         </div>
 
         <details class="card details" id="rnAdvanced">
-          <summary><h2>Advanced</h2><i data-icon="down" class="details-arrow"></i></summary>
+          <summary><h2>Resize</h2><i data-icon="down" class="details-arrow"></i></summary>
           <div class="details-body">
-            <div class="opt">
-              <span class="opt-label">Separator</span>
-              <div class="seg" id="rnSeparator" role="radiogroup" aria-label="Separator">
-                <button type="button" data-value="dash" title="Space, hyphen, space">A - B</button>
-                <button type="button" data-value="pipe">A | B</button>
-                <button type="button" data-value="slash">A / B</button>
-                <button type="button" data-value="underscore">A_B</button>
-              </div>
-            </div>
-            <label class="check"><input type="checkbox" id="rnVersionPrefix"><span class="box"></span><span>Write versions as <code>V1</code>, <code>V2</code>…</span></label>
-            <label class="check"><input type="checkbox" id="rnNumber"><span class="box"></span><span>Number identical names <code>01</code>, <code>02</code>…</span></label>
-            <label class="check"><input type="checkbox" id="rnResize"><span class="box"></span><span>Resize layers to <b id="rnResizeW">1600</b> px wide</span></label>
+            <label class="check"><input type="checkbox" id="rnResize"><span class="box"></span><span>Resize frames to a standard width</span></label>
             <div class="sub" id="rnResizeModes" hidden>
-              <label class="radio"><input type="radio" name="rnResizeMode" value="scale"><span class="ring"></span><span><b>Scale proportionally</b><small>Keeps the aspect ratio; contents scale too.</small></span></label>
-              <label class="radio"><input type="radio" name="rnResizeMode" value="width"><span class="ring"></span><span><b>Width only</b><small>Height stays as it is; auto layout re-hugs.</small></span></label>
+              <div class="seg" id="rnResizeTarget" role="radiogroup" aria-label="Width">
+                <button type="button" data-value="1600">Desktop 1600</button>
+                <button type="button" data-value="320">Mobile 320</button>
+              </div>
+              <label class="radio"><input type="radio" name="rnResizeMode" value="scale"><span class="ring"></span><span><b>Scale proportionally</b><small>Keeps the shape; everything inside scales too.</small></span></label>
+              <label class="radio"><input type="radio" name="rnResizeMode" value="width"><span class="ring"></span><span><b>Width only</b><small>Height stays as it is.</small></span></label>
             </div>
           </div>
         </details>
