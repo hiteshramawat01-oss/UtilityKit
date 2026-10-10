@@ -190,5 +190,32 @@ UK.renamer = (function () {
     };
   }
 
-  return { preview: preview, apply: apply, resizePlan: resizePlan, buildPreview: buildPreview };
+  /** Renames the current selection in one go: works the names out and applies them. */
+  async function run(payload) {
+    payload = payload || {};
+    var nodes = figma.currentPage.selection.slice();
+    if (!nodes.length) throw UK.userError('Select at least one frame to rename.');
+    var p = buildPreview(payload.settings, nodes, 0);
+    if (p.error) throw UK.userError(p.error);
+    return apply({ settings: payload.settings, expected: p.expected });
+  }
+
+  /** Looks for the client in frames on this page that are already named to the guideline. */
+  function detectClient() {
+    var names = [], i;
+    var top = figma.currentPage.children || [];
+    for (i = 0; i < top.length && i < 500; i++) names.push(top[i].name);
+    var sel = figma.currentPage.selection;
+    for (i = 0; i < sel.length && i < 200; i++) names.push(sel[i].name);
+    return N.clientFromNames(names);
+  }
+
+  /** What a name will look like with this client, for the "which client?" screen. */
+  function clientExample(payload) {
+    var client = N.compact(payload && payload.client);
+    var pageType = N.pageTypeFrom(figma.currentPage.name) || 'Homepage';
+    return { compact: client, example: client ? pageType + '_' + client + '_V1' : '' };
+  }
+
+  return { preview: preview, apply: apply, run: run, detectClient: detectClient, clientExample: clientExample, resizePlan: resizePlan, buildPreview: buildPreview };
 })();

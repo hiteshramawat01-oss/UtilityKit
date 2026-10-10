@@ -206,13 +206,13 @@ test('installing never touches the document or the saved naming settings', async
   const { UK, UKLoader, env, sandbox, code } = load();
   await UKLoader.start(() => UK.boot());
   env.add('FRAME', { name: 'Home' });
-  await ask(env, 'settings.save', { renamer: { client: 'Acme' } });
+  await ask(env, 'settings.save', { renamer: { mode: 'marketing', deliverable: 'MetaAds' } });
   serve(sandbox, release(code, '9.9.0'));
   await ask(env, 'update.install');
   env.figma.ui.onmessage({ type: 'update.restart', id: 78 });
   await new Promise((r) => setTimeout(r, 20));
   const init = await ask(env, 'init');
-  assert.equal(init.data.settings.renamer.client, 'Acme');
+  assert.equal(init.data.settings.renamer.deliverable, 'MetaAds');
   assert.deepEqual(env.all().map((n) => n.name), ['Home']);
   assert.equal(env.log.undo, 0);
 });

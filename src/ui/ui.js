@@ -104,9 +104,7 @@
     selection: { count: 0, names: [] },
     settings: null,          // renamer settings (shape defined by the plugin logic)
     flatten: { scale: 2, replace: false, summary: null, result: null, pendingMode: null, busy: false },
-    preview: null,
-    applied: null,
-    previewNotice: '',
+    askingClient: false,
     drive: null,
     driveBusy: false,
     version: '',
@@ -115,8 +113,8 @@
     installing: false
   };
 
-  var TITLES = { renamer: 'Layer Renamer', preview: 'Rename Preview', flatten: 'Flatten & Merge', drive: 'Google Drive Links', settings: 'Settings' };
-  var PARENT = { renamer: 'home', flatten: 'home', drive: 'home', preview: 'renamer' };
+  var TITLES = { renamer: 'Layer Renamer', flatten: 'Flatten & Merge', drive: 'Google Drive Links', settings: 'Settings' };
+  var PARENT = { renamer: 'home', flatten: 'home', drive: 'home' };
 
   // ── toast / notes ───────────────────────────────────────────────────────
 
@@ -169,10 +167,11 @@
     $('brand').hidden = !home;
     $('title').hidden = home;
     $('title').textContent = TITLES[screen] || '';
-    $('openSettings').hidden = screen === 'settings';
+    $('openSettings').hidden = !home;                       // Settings is reached from Home only
+    $('selPill').hidden = home || screen === 'settings';     // the selection only matters inside a utility
     $('toast').hidden = true;
     if (screen === 'settings') { $('stResetConfirm').hidden = true; $('stReset').hidden = false; renderUpdate(); }
-    if (screen === 'renamer') refreshExample();
+    if (screen === 'renamer') enterRenamer();
     if (screen === 'flatten') { state.flatten.result = null; state.flatten.pendingMode = null; refreshSummary(); }
     if (screen === 'drive') scanDrive();
     var first = document.querySelector('.screen:not([hidden]) .scroll');
@@ -180,6 +179,7 @@
   }
 
   function goBack() {
+    if (state.screen === 'renamer' && state.askingClient && state.settings.client) { showClientAsk(false); return; }
     if (state.screen === 'flatten' && state.flatten.pendingMode) { state.flatten.pendingMode = null; renderFlatten(); return; }
     if (state.screen === 'settings') { go(state.settingsFrom || 'home'); return; }
     go(PARENT[state.screen] || 'home');
@@ -195,7 +195,6 @@
     state.selection = sel || { count: 0, names: [] };
     renderSelection();
     if (state.screen === 'renamer') refreshExample();
-    else if (state.screen === 'preview' && !state.applied) loadPreview(true);
     else if (state.screen === 'flatten') {
       var f = state.flatten;
       f.pendingMode = null;
@@ -217,7 +216,7 @@
   }
 
   function settingsChanged() {
-    $('rnError').hidden = true;
+    $('rnResult').hidden = true;
     clearTimeout(exampleTimer);
     exampleTimer = setTimeout(refreshExample, 120);
     saveSettingsSoon();
@@ -243,7 +242,9 @@
   function renderRenamerOptions() {
     var s = state.settings;
     var marketing = s.mode === 'marketing';
-    setSeg($('rnMode'), s.mode);
+    var modeRadios = document.getElementsByName('rnMode');
+    for (var mr = 0; mr < modeRadios.length; mr++) modeRadios[mr].checked = modeRadios[mr].value === s.mode;
+    $('rnClientName').textContent = s.client;
     $('rnWeb').hidden = marketing;
     $('rnMarketing').hidden = !marketing;
     $('rnAdvanced').hidden = marketing;
@@ -254,7 +255,6 @@
     $('rnDeliverable').value = s.deliverable;
     $('rnTask').value = s.task;
     $('rnVariation').value = s.variation;
-    $('rnClient').value = s.client;
 
     $('rnVersionMode').value = s.versionMode;
     $('rnVersionValue').hidden = s.versionMode !== 'set';
@@ -295,7 +295,8 @@
     call('rename.preview', { settings: state.settings, limit: 1 }).then(function (p) {
       if (mine !== exampleSeq) return;          // a newer request is on its way
       var box = $('rnExample'), name = $('rnExampleName'), from = $('rnExampleFrom');
-      var btn = $('rnPreviewBtn');
+      var btn = $('rnRenameBtn');
+      if (btn.classList.contains('busy')) return;
 
       // what was read from the page and the selection
       state.autoPageType = p.autoPageType || '';
@@ -321,143 +322,121 @@
         name.textContent = p.error;
         from.textContent = '';
         btn.disabled = true;
-        btn.textContent = 'Preview changes';
+        btn.textContent = 'Rename';
         return;
       }
       var row = p.rows[0];
+      var more = p.counts.selected > 1 ? ' · and ' + (p.counts.selected - 1) + ' more' : '';
       box.classList.remove('is-empty');
       name.textContent = row.proposed;
-      from.textContent = row.changed ? 'from “' + row.current + '”' : 'Already named this way';
-      btn.disabled = false;
-      btn.textContent = 'Preview ' + plural(p.counts.selected, 'layer');
+      from.textContent = (row.changed ? 'from “' + row.current + '”' : 'Already named this way') + more;
+      var todo = p.counts.willRename + (p.resize ? p.counts.willResize : 0);
+      btn.disabled = todo === 0;
+      btn.textContent = todo === 0 ? 'Already named' : 'Rename ' + plural(p.counts.selected, 'frame');
     }).catch(fail);
   }
 
-  function loadPreview(silent) {
-    return call('rename.preview', { settings: state.settings }).then(function (p) {
-      if (p.error) { showRenamerError(p.error); if (state.screen === 'preview') go('renamer'); return; }
-      if (!p.counts.selected) {
-        if (state.screen === 'preview') { go('renamer'); toast('Selection cleared — select layers to rename.'); }
-        else showRenamerError('Select at least one layer on the canvas to rename.');
-        return;
-      }
-      state.preview = p;
-      state.applied = null;
-      state.previewNotice = silent ? 'Selection changed — the preview was updated.' : '';
-      if (state.screen !== 'preview') go('preview');
-      renderPreview();
-    }).catch(fail);
-  }
+  // ---- the client: read from the file, or asked once ----
 
-  function showRenamerError(message) {
-    var box = clear($('rnError'));
-    box.appendChild(h('i', { icon: 'warn' }));
-    box.appendChild(h('div', { class: 'note-body' }, message));
-    box.hidden = false;
-    box.scrollIntoView({ block: 'nearest' });
-  }
+  var askTimer = null, askSeq = 0;
 
-  function renderPreview() {
-    var p = state.preview, done = state.applied;
-    if (!p) return;
-    $('pvSelected').textContent = num(p.counts.selected);
-    $('pvRename').textContent = num(done ? done.renamed : p.counts.willRename);
-    $('pvRenameLabel').textContent = done ? 'Renamed' : 'Will rename';
-    $('pvUnchanged').textContent = num(done ? done.unchanged + done.failedCount : p.counts.unchanged);
-
-    var banner = clear($('pvBanner'));
-    if (done) {
-      var bits = [];
-      if (done.renamed) bits.push('Renamed ' + plural(done.renamed, 'layer') + '.');
-      else bits.push('No names needed changing.');
-      if (done.resizeRequested) bits.push('Resized ' + plural(done.resized, 'frame') + ' to ' + done.resizeTarget + ' px wide.');
-      bits.push('Undo with ⌘Z / Ctrl+Z.');
-      banner.appendChild(note('success', 'Done', [bits.join(' ')]));
-      if (done.failedCount) {
-        banner.appendChild(note('error', plural(done.failedCount, 'layer') + ' could not be renamed',
-          done.failed.map(function (f) { return f.name + ' — ' + f.reason; })));
-      }
-      if (done.resizeSkippedCount) {
-        banner.appendChild(note('warn', plural(done.resizeSkippedCount, 'layer') + ' kept their size',
-          done.resizeSkipped.map(function (f) { return f.name + ' — ' + f.reason; })));
-      }
-    } else {
-      if (state.previewNotice) banner.appendChild(note('info', '', [state.previewNotice]));
-      if (p.resize) {
-        banner.appendChild(note(p.counts.resizeSkipped ? 'warn' : 'info', '',
-          [plural(p.counts.willResize, 'frame') + ' will be resized to ' + p.resizeTarget + ' px wide' +
-            (p.counts.resizeSkipped ? '; ' + p.counts.resizeSkipped + ' can’t be resized.' : '.')]));
-      }
-      if (!p.counts.willRename && !(p.resize && p.counts.willResize)) {
-        banner.appendChild(note('info', 'Nothing to change', ['Every selected layer already has the right name.']));
-      }
-    }
-    banner.style.display = banner.firstChild ? 'flex' : 'none';
-    banner.style.flexDirection = 'column';
-    banner.style.gap = '8px';
-
-    var failedNames = {};
-    if (done) done.failed.forEach(function (f) { failedNames[f.name] = true; });
-
-    var list = clear($('pvRows'));
-    p.rows.forEach(function (row) {
-      var meta = [];
-      if (!row.changed) meta.push(h('span', { class: 'tag' }, 'No change'));
-      if (row.note) meta.push(h('span', null, row.note));
-      if (row.resize) meta.push(h('span', null, row.resize));
-      if (row.resizeNote && p.resize) meta.push(h('span', null, 'Size kept: ' + row.resizeNote));
-      var failed = done && row.changed && failedNames[row.current];
-      if (failed) meta.push(h('span', { class: 'tag' }, 'Not renamed'));
-
-      if (row.changed) {
-        list.appendChild(h('div', { class: 'row changed' + (done && !failed ? ' done' : '') },
-          h('div', { class: 'row-old' }, row.current),
-          h('div', { class: 'row-new' }, h('i', { icon: done && !failed ? 'check' : 'arrow' }), h('span', null, row.proposed)),
-          meta.length ? h('div', { class: 'row-meta' }, meta) : null));
+  /** Opening the Layer Renamer: make sure we know the client before showing anything else. */
+  function enterRenamer() {
+    $('rnResult').hidden = true;
+    if (state.settings.client) { showClientAsk(false); refreshExample(); return; }
+    call('client.detect').then(function (res) {
+      if (res.client) {
+        state.settings.client = res.client;
+        showClientAsk(false);
+        renderRenamerOptions();
+        refreshExample();
       } else {
-        list.appendChild(h('div', { class: 'row same' },
-          h('div', { class: 'row-new' }, h('span', null, row.current)),
-          h('div', { class: 'row-meta' }, meta)));
+        showClientAsk(true);
       }
-    });
-    if (p.hiddenRows) list.appendChild(h('div', { class: 'more' }, 'and ' + num(p.hiddenRows) + ' more layers'));
-
-    var apply = $('pvApply'), edit = $('pvEdit');
-    setBusy(apply, false);
-    if (done) {
-      edit.textContent = 'Rename more';
-      apply.textContent = 'Done';
-      apply.disabled = false;
-    } else {
-      edit.textContent = 'Edit';
-      var nothing = !p.counts.willRename && !(p.resize && p.counts.willResize);
-      apply.textContent = p.counts.willRename ? 'Apply to ' + plural(p.counts.willRename, 'layer') : (nothing ? 'Nothing to apply' : 'Apply resize');
-      apply.disabled = nothing;
-    }
+    }).catch(function () { showClientAsk(true); });
   }
 
-  function applyRename() {
-    if (state.applied) { go('home'); return; }
-    var p = state.preview;
-    if (!p) return;
-    var btn = $('pvApply');
-    setBusy(btn, true, 'Applying…');
-    call('rename.apply', { settings: state.settings, expected: p.expected, flatten: { scale: state.flatten.scale } }).then(function (res) {
-      if (res.stale) {
-        state.preview = res.preview;
-        state.previewNotice = 'Some layers changed after this preview was made, so nothing was renamed. Check the updated names and apply again.';
-        renderPreview();
-        return;
+  function showClientAsk(show) {
+    var changing = show && !!state.settings.client;
+    state.askingClient = show;
+    $('rnAsk').hidden = !show;
+    $('rnForm').hidden = show;
+    $('rnActions').hidden = show;
+    if (!show) return;
+    $('rnAskTitle').textContent = changing ? 'Change the client' : 'Who is this file for?';
+    $('rnAskGo').textContent = changing ? 'Save' : 'Continue';
+    $('rnAskCancel').hidden = !changing;
+    var input = $('rnAskInput');
+    input.value = state.settings.client || '';
+    updateClientExample();
+    setTimeout(function () { input.focus(); input.select(); }, 30);
+  }
+
+  function updateClientExample() {
+    var value = $('rnAskInput').value;
+    var mine = ++askSeq;
+    call('client.example', { client: value }).then(function (res) {
+      if (mine !== askSeq) return;
+      $('rnAskGo').disabled = !res.compact;
+      $('rnAskExample').hidden = !res.compact;
+      if (res.compact) {
+        // show the client's part of the name in bold
+        var at = res.example.indexOf(res.compact);
+        var name = clear($('rnAskExampleName'));
+        name.appendChild(document.createTextNode(res.example.slice(0, at)));
+        name.appendChild(h('b', null, res.compact));
+        name.appendChild(document.createTextNode(res.example.slice(at + res.compact.length)));
       }
-      state.applied = res;
-      state.previewNotice = '';
+    }).catch(function () { /* the button simply stays as it was */ });
+  }
+
+  function saveClient() {
+    var btn = $('rnAskGo');
+    if (btn.disabled) return;
+    btn.disabled = true;
+    call('client.set', { client: $('rnAskInput').value }).then(function (res) {
+      state.settings.client = res.client;
+      showClientAsk(false);
+      renderRenamerOptions();
+      refreshExample();
+    }).catch(function (err) { btn.disabled = false; fail(err); });
+  }
+
+  // ---- renaming ----
+
+  /** One click: rename the selected frames. Undo is ⌘Z / Ctrl+Z. */
+  function runRename() {
+    var btn = $('rnRenameBtn');
+    if (btn.disabled) return;
+    setBusy(btn, true, 'Renaming…');
+    call('rename.run', { settings: state.settings, flatten: { scale: state.flatten.scale } }).then(function (res) {
+      setBusy(btn, false);
       // "Next version" and friends are one-off actions; don't leave them armed.
       state.settings.versionMode = 'auto';
       state.settings.revisionMode = 'keep';
       renderRenamerOptions();
-      renderPreview();
-      document.querySelector('[data-screen="preview"] .scroll').scrollTop = 0;
-    }).catch(function (err) { setBusy(btn, false); renderPreview(); fail(err); });
+      renderRenameResult(res);
+      refreshExample();
+    }).catch(function (err) { setBusy(btn, false); refreshExample(); fail(err); });
+  }
+
+  function renderRenameResult(res) {
+    var box = clear($('rnResult'));
+    var bits = [];
+    if (res.renamed) bits.push('Renamed ' + plural(res.renamed, 'frame'));
+    if (res.resizeRequested && res.resized) bits.push('resized ' + res.resized + ' to ' + res.resizeTarget + ' px');
+    var message = bits.length ? bits.join(', ') + '. Undo with ⌘Z / Ctrl+Z.' : 'Nothing needed changing.';
+    if (!res.failedCount) toast(message);
+    box.hidden = !(res.failedCount || res.resizeSkippedCount);
+    if (res.failedCount) {
+      box.appendChild(note('error', plural(res.failedCount, 'frame') + ' could not be renamed',
+        res.failed.map(function (f) { return f.name + ' — ' + f.reason; })));
+    }
+    if (res.resizeSkippedCount) {
+      box.appendChild(note('warn', plural(res.resizeSkippedCount, 'layer') + ' kept their size',
+        res.resizeSkipped.map(function (f) { return f.name + ' — ' + f.reason; })));
+    }
+    if (!box.hidden) box.scrollIntoView({ block: 'nearest' });
   }
 
   // ── Flatten & Merge ─────────────────────────────────────────────────────
@@ -835,10 +814,10 @@
     btn.disabled = true;
     call('settings.reset').then(function (fresh) {
       btn.disabled = false;
+      var client = state.settings.client;        // the client belongs to the file, not to these settings
       state.settings = fresh.renamer;
+      state.settings.client = client;
       state.flatten.scale = fresh.flatten.scale;
-      state.preview = null;
-      state.applied = null;
       renderRenamerOptions();
       $('rnAdvanced').open = false;
       $('stResetConfirm').hidden = true;
@@ -851,7 +830,6 @@
 
   function bind() {
     $('back').addEventListener('click', goBack);
-    $('updCheck').addEventListener('click', function () { checkUpdates('updCheck'); });
     $('openSettings').addEventListener('click', function () { go('settings'); });
     $('stCheck').addEventListener('click', function () { checkUpdates('stCheck'); });
     $('stRepo').addEventListener('click', function () { openUpdate('page'); });
@@ -877,7 +855,10 @@
         settingsChanged();
       });
     };
-    seg('rnMode', 'mode');
+    var modeInputs = document.getElementsByName('rnMode');
+    for (var mi = 0; mi < modeInputs.length; mi++) {
+      modeInputs[mi].addEventListener('change', function (e) { state.settings.mode = e.target.value; renderRenamerOptions(); settingsChanged(); });
+    }
     seg('rnPhase', 'phase');
     seg('rnResizeTarget', 'resizeTarget', Number);
 
@@ -890,7 +871,7 @@
     $('rnPageType').addEventListener('blur', function (e) {
       if (!state.settings.pageType) e.target.value = state.autoPageType || '';
     });
-    var typed = { rnClient: 'client', rnDeliverable: 'deliverable', rnTask: 'task', rnVariation: 'variation' };
+    var typed = { rnDeliverable: 'deliverable', rnTask: 'task', rnVariation: 'variation' };
     Object.keys(typed).forEach(function (id) {
       $(id).addEventListener('input', function (e) { state.settings[typed[id]] = e.target.value; settingsChanged(); });
     });
@@ -917,9 +898,12 @@
     for (var m = 0; m < modes.length; m++) {
       modes[m].addEventListener('change', function (e) { state.settings.resizeMode = e.target.value; settingsChanged(); });
     }
-    $('rnPreviewBtn').addEventListener('click', function () { loadPreview(false); });
-    $('pvEdit').addEventListener('click', function () { go('renamer'); });
-    $('pvApply').addEventListener('click', applyRename);
+    $('rnRenameBtn').addEventListener('click', runRename);
+    $('rnClientChange').addEventListener('click', function () { showClientAsk(true); });
+    $('rnAskGo').addEventListener('click', saveClient);
+    $('rnAskCancel').addEventListener('click', function () { showClientAsk(false); });
+    $('rnAskInput').addEventListener('input', function () { clearTimeout(askTimer); askTimer = setTimeout(updateClientExample, 80); });
+    $('rnAskInput').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); saveClient(); } });
 
     // flatten
     $('flScale').addEventListener('click', function (e) {

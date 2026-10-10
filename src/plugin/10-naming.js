@@ -73,9 +73,14 @@ UK.naming = (function () {
     return d;
   }
 
-  /** The settings worth remembering between sessions. One-off choices (version, revision, page override) are not. */
+  /**
+   * The settings worth remembering between sessions. One-off choices (version,
+   * revision, page override) are not, and neither is the client: a client
+   * belongs to a file, so it must never follow the designer into another one.
+   */
   function persistable(raw) {
     var s = normalize(raw), d = defaults();
+    s.client = d.client;
     s.pageType = d.pageType;
     s.variation = d.variation;
     s.versionMode = d.versionMode;
@@ -153,6 +158,34 @@ UK.naming = (function () {
       if (m) return { v: Number(m[1]), r: m[2] ? Number(m[2]) : 0 };
     }
     return null;
+  }
+
+  /**
+   * The client written in a name that already follows the guideline: the part
+   * just before the version. "Homepage_Mockups_EstateGuys_V1R2" -> "EstateGuys".
+   */
+  function clientIn(name) {
+    var parts = String(name === null || name === undefined ? '' : name).split(SEP);
+    for (var i = parts.length - 1; i >= 2; i--) {
+      if (/^V\d{1,3}(?:R\d{1,3})?$/i.test(parts[i].trim())) {
+        var candidate = parts[i - 1].trim();
+        var isOther = PHASES.indexOf(candidate) !== -1 || candidate === 'Desktop' || candidate === 'Mobile';
+        return candidate && !isOther && compact(candidate) === candidate ? candidate : '';
+      }
+    }
+    return '';
+  }
+
+  /** The client most of these names agree on, or ''. */
+  function clientFromNames(names) {
+    var counts = {}, best = '', bestCount = 0;
+    for (var i = 0; i < names.length; i++) {
+      var c = clientIn(names[i]);
+      if (!c) continue;
+      counts[c] = (counts[c] || 0) + 1;
+      if (counts[c] > bestCount) { best = c; bestCount = counts[c]; }
+    }
+    return best;
   }
 
   function versionText(v, r) {
@@ -321,6 +354,8 @@ UK.naming = (function () {
     deviceFor: deviceFor,
     sizeFor: sizeFor,
     readVersion: readVersion,
+    clientIn: clientIn,
+    clientFromNames: clientFromNames,
     validate: validate,
     willResize: willResize,
     plan: plan

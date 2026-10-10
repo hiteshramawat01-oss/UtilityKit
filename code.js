@@ -8,7 +8,7 @@
  * Syntax is kept conservative on purpose (no optional chaining, no object
  * spread) because Figma's sandbox is stricter than a browser.
  */
-var UK = { VERSION: '1.4.0' };   // filled in from version.json by build.js
+var UK = { VERSION: '1.5.0' };   // filled in from version.json by build.js
 
 /** An error whose message is safe and useful to show to the designer. */
 UK.userError = function (message, code) {
@@ -83,7 +83,7 @@ function __ukCompile(source) {
 
 var UKLoader = (typeof UKLoader === 'object' && UKLoader) || (function () {
   var KEY = 'utilitykit.update.v1';
-  var BUNDLED = '1.4.0';          // the version in the plugin folder
+  var BUNDLED = '1.5.0';          // the version in the plugin folder
   var MIN_CHARS = 1000;
   var MAX_CHARS = 1500000;
 
@@ -294,9 +294,14 @@ UK.naming = (function () {
     return d;
   }
 
-  /** The settings worth remembering between sessions. One-off choices (version, revision, page override) are not. */
+  /**
+   * The settings worth remembering between sessions. One-off choices (version,
+   * revision, page override) are not, and neither is the client: a client
+   * belongs to a file, so it must never follow the designer into another one.
+   */
   function persistable(raw) {
     var s = normalize(raw), d = defaults();
+    s.client = d.client;
     s.pageType = d.pageType;
     s.variation = d.variation;
     s.versionMode = d.versionMode;
@@ -374,6 +379,34 @@ UK.naming = (function () {
       if (m) return { v: Number(m[1]), r: m[2] ? Number(m[2]) : 0 };
     }
     return null;
+  }
+
+  /**
+   * The client written in a name that already follows the guideline: the part
+   * just before the version. "Homepage_Mockups_EstateGuys_V1R2" -> "EstateGuys".
+   */
+  function clientIn(name) {
+    var parts = String(name === null || name === undefined ? '' : name).split(SEP);
+    for (var i = parts.length - 1; i >= 2; i--) {
+      if (/^V\d{1,3}(?:R\d{1,3})?$/i.test(parts[i].trim())) {
+        var candidate = parts[i - 1].trim();
+        var isOther = PHASES.indexOf(candidate) !== -1 || candidate === 'Desktop' || candidate === 'Mobile';
+        return candidate && !isOther && compact(candidate) === candidate ? candidate : '';
+      }
+    }
+    return '';
+  }
+
+  /** The client most of these names agree on, or ''. */
+  function clientFromNames(names) {
+    var counts = {}, best = '', bestCount = 0;
+    for (var i = 0; i < names.length; i++) {
+      var c = clientIn(names[i]);
+      if (!c) continue;
+      counts[c] = (counts[c] || 0) + 1;
+      if (counts[c] > bestCount) { best = c; bestCount = counts[c]; }
+    }
+    return best;
   }
 
   function versionText(v, r) {
@@ -542,6 +575,8 @@ UK.naming = (function () {
     deviceFor: deviceFor,
     sizeFor: sizeFor,
     readVersion: readVersion,
+    clientIn: clientIn,
+    clientFromNames: clientFromNames,
     validate: validate,
     willResize: willResize,
     plan: plan
@@ -741,7 +776,34 @@ UK.renamer = (function () {
     };
   }
 
-  return { preview: preview, apply: apply, resizePlan: resizePlan, buildPreview: buildPreview };
+  /** Renames the current selection in one go: works the names out and applies them. */
+  async function run(payload) {
+    payload = payload || {};
+    var nodes = figma.currentPage.selection.slice();
+    if (!nodes.length) throw UK.userError('Select at least one frame to rename.');
+    var p = buildPreview(payload.settings, nodes, 0);
+    if (p.error) throw UK.userError(p.error);
+    return apply({ settings: payload.settings, expected: p.expected });
+  }
+
+  /** Looks for the client in frames on this page that are already named to the guideline. */
+  function detectClient() {
+    var names = [], i;
+    var top = figma.currentPage.children || [];
+    for (i = 0; i < top.length && i < 500; i++) names.push(top[i].name);
+    var sel = figma.currentPage.selection;
+    for (i = 0; i < sel.length && i < 200; i++) names.push(sel[i].name);
+    return N.clientFromNames(names);
+  }
+
+  /** What a name will look like with this client, for the "which client?" screen. */
+  function clientExample(payload) {
+    var client = N.compact(payload && payload.client);
+    var pageType = N.pageTypeFrom(figma.currentPage.name) || 'Homepage';
+    return { compact: client, example: client ? pageType + '_' + client + '_V1' : '' };
+  }
+
+  return { preview: preview, apply: apply, run: run, detectClient: detectClient, clientExample: clientExample, resizePlan: resizePlan, buildPreview: buildPreview };
 })();
 
 // ---- 30-flatten.js ----
@@ -1690,8 +1752,17 @@ UK.updates = (function () {
     for (var i = 0; i < FILE_FIELDS.length; i++) {
       if (typeof file[FILE_FIELDS[i]] === 'string') merged[FILE_FIELDS[i]] = file[FILE_FIELDS[i]];
     }
+    // The client only ever comes from this file: saved in it, or read off frames already named in it.
+    var clientSource = '';
+    if (typeof file.client === 'string' && UK.naming.compact(file.client)) {
+      clientSource = 'file';
+    } else {
+      merged.client = UK.renamer.detectClient();
+      if (merged.client) clientSource = 'frames';
+    }
     var flatten = stored.flatten && typeof stored.flatten === 'object' ? stored.flatten : {};
     return {
+      clientSource: clientSource,
       renamer: UK.naming.normalize(merged),
       flatten: { scale: UK.flatten.SCALES.indexOf(Number(flatten.scale)) === -1 ? 2 : Number(flatten.scale) },
       fileHasOwn: Object.keys(file).length > 0
@@ -1752,6 +1823,38 @@ UK.updates = (function () {
     'selection.get': function () { return selectionInfo(); },
 
     'rename.preview': function (payload) { return UK.renamer.preview(payload); },
+    /** One click: rename the selection, then remember the project choices in the file. */
+    'rename.run': async function (payload) {
+      var result = await UK.renamer.run(payload);
+      if (!result.stale) {
+        var settings = UK.naming.normalize(payload && payload.settings);
+        saveFileData(settings);
+        try { await saveSettings({ renamer: settings, flatten: payload && payload.flatten }); } catch (e) { /* not fatal */ }
+      }
+      return result;
+    },
+
+    /** The client for this file, if the file can tell us. */
+    'client.detect': function () {
+      var file = readFileData();
+      if (typeof file.client === 'string' && UK.naming.compact(file.client)) return { client: file.client, source: 'file' };
+      var found = UK.renamer.detectClient();
+      return { client: found, source: found ? 'frames' : '' };
+    },
+    'client.example': function (payload) { return UK.renamer.clientExample(payload); },
+    /** Saves the client in the file so nobody working on it is asked again. */
+    'client.set': function (payload) {
+      var client = UK.collapse(payload && payload.client).slice(0, 120);
+      if (!UK.naming.compact(client)) throw UK.userError('Type the client\u2019s name.');
+      var saved = false;
+      try {
+        var data = readFileData();
+        data.client = client;
+        figma.root.setPluginData(FILE_KEY, JSON.stringify(data));
+        saved = true;
+      } catch (e) { saved = false; }   // view-only files: use it for this session anyway
+      return { client: client, saved: saved };
+    },
     'rename.apply': async function (payload) {
       var result = await UK.renamer.apply(payload);
       if (!result.stale) {

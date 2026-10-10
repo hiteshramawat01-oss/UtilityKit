@@ -1,12 +1,12 @@
 {
-  "version": "1.4.0",
+  "version": "1.5.0",
   "released": "2026-10-10",
   "notes": [
-    "Layer Renamer now follows the team naming guideline: PageType_Device_DesignPhase_ClientName_V1R1.",
-    "Page type is read from the Figma page; Desktop or Mobile is read from the frame width (1600 / 320).",
-    "Several frames are numbered V1, V2, V3 left to right. Versions and revisions have their own controls.",
-    "New Marketing format, with the size read from each frame.",
-    "Resize now offers Desktop 1600 and Mobile 320, and only touches frames."
+    "Layer Renamer asks for the client once per file, or reads it from frames already named. Web and Marketing share it.",
+    "Rename happens in one click; the live preview sits right above the button.",
+    "Web / Marketing are now radio buttons.",
+    "Home: no selection count, and the footer shows only the version. Check for updates is in Settings.",
+    "The settings icon appears on Home only."
   ],
   "download": "https://github.com/hiteshramawat01-oss/UtilityKit/archive/refs/heads/main.zip",
   "page": "https://github.com/hiteshramawat01-oss/UtilityKit"

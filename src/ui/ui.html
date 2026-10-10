@@ -19,7 +19,7 @@
       <span class="brand-text"><span class="brand-name">UtilityKit</span></span>
     </div>
     <h1 class="bar-title" id="title" hidden></h1>
-    <div class="pill" id="selPill" title="Layers selected on the canvas"><span class="dot"></span><span id="selText">0 selected</span></div>
+    <div class="pill" id="selPill" title="Layers selected on the canvas" hidden><span class="dot"></span><span id="selText">0 selected</span></div>
     <button class="icon-btn" id="openSettings" type="button" aria-label="Settings" title="Settings"><i data-icon="settings"></i></button>
   </header>
 
@@ -51,22 +51,39 @@
           <span class="badge">Coming soon</span>
         </div>
       </div>
-      <div class="foot"><span id="version"></span><button class="linkish" type="button" id="updCheck">Check for updates</button></div>
+      <div class="foot"><span id="version"></span></div>
     </section>
 
     <!-- ───────────── Layer Renamer ───────────── -->
     <section class="screen" data-screen="renamer" hidden>
-      <div class="scroll">
-        <div class="seg seg-wide" id="rnMode" role="radiogroup" aria-label="Type of work">
-          <button type="button" data-value="web">Web</button>
-          <button type="button" data-value="marketing">Marketing</button>
+
+      <!-- Asked once per file, before anything else is shown -->
+      <div class="ask" id="rnAsk" hidden>
+        <span class="ask-icon"><i data-icon="rename"></i></span>
+        <h2 class="ask-title" id="rnAskTitle">Who is this file for?</h2>
+        <p class="ask-text">Type the client’s name once. It’s saved with this file and added to every name.</p>
+        <input class="input ask-input" id="rnAskInput" type="text" placeholder="Client name" maxlength="120" autocomplete="off">
+        <div class="ask-example" id="rnAskExample" hidden>
+          <span class="example-label">Your names will look like</span>
+          <span class="example-name" id="rnAskExampleName"></span>
+        </div>
+        <div class="ask-btns">
+          <button class="btn" type="button" id="rnAskCancel" hidden>Cancel</button>
+          <button class="btn primary grow" type="button" id="rnAskGo" disabled>Continue</button>
+        </div>
+      </div>
+
+      <div class="scroll" id="rnForm">
+        <div class="clientbar">
+          <span class="clientbar-label">Client</span>
+          <b class="clientbar-name" id="rnClientName"></b>
+          <button class="linkish" type="button" id="rnClientChange">Change</button>
         </div>
 
         <div class="card">
-          <div class="example" id="rnExample">
-            <span class="example-label">Live preview</span>
-            <span class="example-name" id="rnExampleName">—</span>
-            <span class="example-from" id="rnExampleFrom"></span>
+          <div class="radios" id="rnMode" role="radiogroup" aria-label="Type of work">
+            <label class="radio"><input type="radio" name="rnMode" value="web"><span class="ring"></span><span>Web</span></label>
+            <label class="radio"><input type="radio" name="rnMode" value="marketing"><span class="ring"></span><span>Marketing</span></label>
           </div>
 
           <div class="rows" id="rnWeb">
@@ -92,9 +109,6 @@
             <label class="frow"><span class="frow-label">Variation</span>
               <input class="input" id="rnVariation" type="text" list="rnVariations" placeholder="Optional, e.g. A" maxlength="40" autocomplete="off" spellcheck="false"></label>
           </div>
-
-          <label class="frow"><span class="frow-label">Client</span>
-            <input class="input" id="rnClient" type="text" placeholder="Client name" maxlength="120" autocomplete="off"></label>
         </div>
 
         <div class="card">
@@ -137,27 +151,16 @@
             </div>
           </div>
         </details>
-        <div class="note error" id="rnError" hidden></div>
+        <div id="rnResult"></div>
       </div>
-      <div class="actions">
-        <button class="btn primary" type="button" id="rnPreviewBtn">Preview changes</button>
-      </div>
-    </section>
 
-    <!-- ───────────── Rename Preview ───────────── -->
-    <section class="screen" data-screen="preview" hidden>
-      <div class="scroll">
-        <div class="stats">
-          <div class="stat"><b id="pvSelected">0</b><span>Selected</span></div>
-          <div class="stat stat-accent"><b id="pvRename">0</b><span id="pvRenameLabel">Will rename</span></div>
-          <div class="stat"><b id="pvUnchanged">0</b><span>Unchanged</span></div>
+      <div class="actions stack" id="rnActions">
+        <div class="example" id="rnExample">
+          <span class="example-label">Live preview</span>
+          <span class="example-name" id="rnExampleName">—</span>
+          <span class="example-from" id="rnExampleFrom"></span>
         </div>
-        <div id="pvBanner"></div>
-        <div class="card list" id="pvRows"></div>
-      </div>
-      <div class="actions" id="pvActions">
-        <button class="btn" type="button" id="pvEdit">Edit</button>
-        <button class="btn primary grow" type="button" id="pvApply">Apply changes</button>
+        <button class="btn primary" type="button" id="rnRenameBtn">Rename</button>
       </div>
     </section>
 

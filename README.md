@@ -1,6 +1,6 @@
 # UtilityKit
 
-A Figma plugin · v1.4.0
+A Figma plugin · v1.5.0
 
 Three everyday helpers in one small window:
 
@@ -39,10 +39,10 @@ Example: `1080x1080_MetaAds_BlackFriday_AllfitAutomotiveAndParts_V1`
 How to use it:
 
 1. Go to the right page in Figma and select the frames to rename.
-2. Choose **Web** or **Marketing** at the top.
-3. Fill in the boxes (see below). The **Live preview** shows the new name as you go.
-4. Press **Preview** to see every old name next to its new one.
-5. Press **Apply**.
+2. The first time in a file, the plugin asks one thing: **who is this file for?** Type the client's name. It is saved with the file, so nobody is asked again.
+3. Choose **Web** or **Marketing**.
+4. Check the **Live preview** above the button. It shows the new name.
+5. Press **Rename**. That's it.
 
 What the plugin fills in for you:
 
@@ -57,7 +57,13 @@ What you fill in:
 
 - **Design phase** (Web) — None, Wireframes or Mockups.
 - **Deliverable**, **Specific task**, **Variation** (Marketing) — for example `MetaAds`, `BlackFriday`, `A`.
-- **Client** — always needed. Type it normally; the plugin tidies it: `All-fit Automotive & Parts` becomes `AllfitAutomotiveAndParts`.
+
+The client:
+
+- It is shown at the top of the screen, with a **Change** link.
+- Type it normally; the plugin tidies it: `All-fit Automotive & Parts` becomes `AllfitAutomotiveAndParts`.
+- Web and Marketing use the same client.
+- If the file already has frames named to the guideline, the plugin reads the client from them and doesn't ask.
 
 Versions and revisions:
 
@@ -72,10 +78,10 @@ Versions and revisions:
 
 Good to know:
 
-- Nothing changes until you press **Apply**. To undo, press ⌘Z (Mac) or Ctrl+Z (Windows).
+- Nothing changes until you press **Rename**. To undo, press ⌘Z (Mac) or Ctrl+Z (Windows).
 - The frame's old name is not used, apart from a version it already has. The rest comes from the page name, the frame's size and what you typed.
 - **Resize** (Web) can set frames to **Desktop 1600** or **Mobile 320** wide as it renames. It only changes frames, never text or shapes.
-- The plugin remembers your choices. It also remembers the client for each Figma file, so every project opens with its own client name.
+- The plugin remembers your choices. The client is remembered per Figma file, never carried from one file to another.
 
 ---
 
@@ -116,7 +122,7 @@ What it does **not** do: it does not look inside Google Drive, it cannot tell wh
 
 ## Settings
 
-Click the **gear** in the top right corner.
+Click the **gear** in the top right corner of the Home screen.
 
 - **Updates** — shows your version and lets you check for a new one.
 - **Reset my settings** — puts the Layer Renamer and Flatten options back to how they were when you first installed. It asks before doing it.
@@ -125,7 +131,7 @@ Click the **gear** in the top right corner.
 
 ## Updating
 
-1. Press **Check for updates** (bottom of the Home screen, or in Settings).
+1. Open **Settings** (the gear on the Home screen) and press **Check for updates**.
 2. If there is a new version, press **Update now**.
 3. The plugin reloads by itself with the new version. That's it.
 
@@ -196,6 +202,6 @@ After a few minutes, everyone who presses **Check for updates** sees the new ver
 
 **Checks**
 
-- `npm test` runs 59 automatic checks of the renaming rules, flattening, Drive links and updating.
+- `npm test` runs 62 automatic checks of the renaming rules, flattening, Drive links and updating.
 - `python3 test/e2e.py` clicks through every screen in a pretend Figma (needs Playwright).
 - These run outside Figma, so also try a new version in Figma itself on a spare file before sharing it.

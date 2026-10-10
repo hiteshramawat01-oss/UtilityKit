@@ -372,17 +372,19 @@ test('old or broken saved settings are repaired', () => {
   assert.equal(JSON.stringify(N.normalize(null)), JSON.stringify(N.defaults()));
 });
 
-test('settings: saved per designer; one-off choices are not remembered; the file keeps its own client', async () => {
+test('settings: saved per designer; one-off choices and the client are not carried between files', async () => {
   const { env, call, frame } = scene();
   let init = await call('init');
   assert.equal(init.data.settings.renamer.client, '');
+  assert.equal(init.data.settings.clientSource, '');
   assert.equal(init.data.settings.renamer.mode, 'web');
   assert.deepEqual(init.data.naming.phases, ['Wireframes', 'Mockups']);
 
-  await call('settings.save', { renamer: web({ client: 'Typed Not Applied', mode: 'marketing', deliverable: 'MetaAds', pageType: 'Override', versionMode: 'next', revisionMode: 'next', variation: 'B' }), flatten: { scale: 3 } });
+  await call('settings.save', { renamer: web({ client: 'Typed In Another File', mode: 'marketing', deliverable: 'MetaAds', pageType: 'Override', versionMode: 'next', revisionMode: 'next', variation: 'B' }), flatten: { scale: 3 } });
   init = await call('init');
   const r = init.data.settings.renamer;
-  assert.deepEqual([r.client, r.mode, r.deliverable], ['Typed Not Applied', 'marketing', 'MetaAds']);
+  assert.deepEqual([r.mode, r.deliverable], ['marketing', 'MetaAds']);
+  assert.equal(r.client, '', 'a client never follows the designer into another file');
   assert.deepEqual([r.pageType, r.versionMode, r.revisionMode, r.variation], ['', 'auto', 'keep', ''], 'one-off choices start fresh');
   assert.equal(init.data.settings.flatten.scale, 3);
   assert.equal(env.figma.root.getPluginData('utilitykit.file.v1'), '', 'typing alone never writes to the file');
@@ -390,14 +392,95 @@ test('settings: saved per designer; one-off choices are not remembered; the file
   const a = frame('a', 0, 1600);
   env.select([a]);
   const settings = web({ client: 'Acme', phase: 'Wireframes' });
-  const pre = await call('rename.preview', { settings });
-  await call('rename.apply', { settings, expected: pre.data.expected });
+  await call('rename.run', { settings });
   assert.deepEqual(JSON.parse(env.figma.root.getPluginData('utilitykit.file.v1')), { client: 'Acme', phase: 'Wireframes', mode: 'web', deliverable: '', task: '' });
 
-  // later another file's client was used last; this file still restores its own
+  // this file restores its own client and phase whatever was used elsewhere since
   await call('settings.save', { renamer: web({ client: 'Other Client', phase: 'Mockups' }) });
   init = await call('init');
-  assert.deepEqual([init.data.settings.renamer.client, init.data.settings.renamer.phase], ['Acme', 'Wireframes']);
+  assert.deepEqual([init.data.settings.renamer.client, init.data.settings.renamer.phase, init.data.settings.clientSource], ['Acme', 'Wireframes', 'file']);
+});
+
+test('client: read from the file, or from frames already named to the guideline, otherwise unknown', async () => {
+  const { UK } = load();
+  const c = UK.naming.clientIn;
+  assert.equal(c('Homepage_Mockups_EstateGuys_V1'), 'EstateGuys');
+  assert.equal(c('Homepage_Desktop_Wireframes_AtlantaLightBulbs_V1R1'), 'AtlantaLightBulbs');
+  assert.equal(c('1200x300_GoogleResponsiveAds_BlackFridaySale_WestPointHome_V1'), 'WestPointHome');
+  assert.equal(c('1080x1080_MetaAds_Sale_Acme_V2R1_B'), 'Acme', 'a variation after the version is fine');
+  for (const n of ['Frame 1', 'home_v3', 'Homepage_Desktop_V1', 'Homepage_Mockups_V1', 'Home page_some client_V1', 'Homepage_Mockups_EstateGuys', '']) assert.equal(c(n), '', n);
+
+  // nothing to go on
+  let s = scene();
+  s.frame('Frame 1', 0, 1600);
+  assert.deepEqual((await s.call('client.detect')).data, { client: '', source: '' });
+
+  // frames on the page already carry it; the most common one wins
+  s = scene();
+  s.frame('Homepage_Desktop_Mockups_EstateGuys_V1', 0, 1600);
+  s.frame('Homepage_Mobile_Mockups_EstateGuys_V1', 2000, 320);
+  s.frame('Homepage_Mockups_OldClient_V1', 4000, 1440);
+  s.frame('Frame 9', 6000, 1600);
+  assert.deepEqual((await s.call('client.detect')).data, { client: 'EstateGuys', source: 'frames' });
+  let init = await s.call('init');
+  assert.deepEqual([init.data.settings.renamer.client, init.data.settings.clientSource], ['EstateGuys', 'frames']);
+  assert.equal(s.env.figma.root.getPluginData('utilitykit.file.v1'), '', 'reading it changes nothing');
+
+  // once saved in the file, that wins
+  await s.call('client.set', { client: 'Estate Guys Ltd' });
+  assert.deepEqual((await s.call('client.detect')).data, { client: 'Estate Guys Ltd', source: 'file' });
+});
+
+test('client: asked once, saved in the file, shared by Web and Marketing', async () => {
+  const { env, call, frame } = scene();
+  let res = await call('client.set', { client: '   ' });
+  assert.equal(res.ok, false);
+  assert.match(res.error.message, /Type the client/);
+  res = await call('client.set', { client: '-- / --' });
+  assert.equal(res.ok, false);
+
+  res = await call('client.example', { client: 'All-fit Automotive & Parts' });
+  assert.deepEqual(res.data, { compact: 'AllfitAutomotiveAndParts', example: 'Homepage_AllfitAutomotiveAndParts_V1' });
+  assert.deepEqual((await call('client.example', { client: '' })).data, { compact: '', example: '' });
+
+  res = await call('client.set', { client: '  All-fit Automotive &  Parts ' });
+  assert.deepEqual(res.data, { client: 'All-fit Automotive & Parts', saved: true });
+  assert.equal(JSON.parse(env.figma.root.getPluginData('utilitykit.file.v1')).client, 'All-fit Automotive & Parts');
+
+  const init = await call('init');
+  const client = init.data.settings.renamer.client;
+  env.select([frame('a', 0, 1600), frame('b', 3000, 1080, 1080)]);
+  assert.match(names(await call('rename.preview', { settings: web({ client, phase: '' }) }))[0], /^Homepage_Desktop_AllfitAutomotiveAndParts_V1$/);
+  assert.match(names(await call('rename.preview', { settings: mkt({ client }) }))[1], /^1080x1080_MetaAds_BlackFriday_AllfitAutomotiveAndParts_V1$/);
+
+  // changing it keeps the other things the file remembers
+  await call('rename.run', { settings: web({ client, phase: 'Mockups' }) });
+  await call('client.set', { client: 'New Name' });
+  assert.deepEqual(JSON.parse(env.figma.root.getPluginData('utilitykit.file.v1')), { client: 'New Name', phase: 'Mockups', mode: 'web', deliverable: '', task: '' });
+});
+
+test('rename in one click: names and applies the current selection', async () => {
+  const { env, call, frame } = scene();
+  let res = await call('rename.run', { settings: web() });
+  assert.equal(res.ok, false);
+  assert.match(res.error.message, /Select at least one frame/);
+
+  const a = frame('Frame 1', 2000, 1600), b = frame('Frame 2', 0, 1600), m = frame('Frame 3', 4000, 320);
+  env.select([a, b, m]);
+  res = await call('rename.run', { settings: web({ client: '' }) });
+  assert.match(res.error.message, /Add the client name/);
+  assert.equal(a.name, 'Frame 1');
+
+  res = await call('rename.run', { settings: web() });
+  assert.equal(res.ok, true);
+  assert.deepEqual([res.data.renamed, res.data.unchanged, res.data.failedCount, res.data.stale], [3, 0, 0, false]);
+  assert.deepEqual([b.name, a.name, m.name], ['Homepage_Desktop_Mockups_Acme_V1', 'Homepage_Desktop_Mockups_Acme_V2', 'Homepage_Mobile_Mockups_Acme_V1']);
+  assert.equal(env.log.undo, 1, 'one undo step');
+
+  res = await call('rename.run', { settings: web() });          // again: nothing to do
+  assert.deepEqual([res.data.renamed, res.data.unchanged], [0, 3]);
+  res = await call('rename.run', { settings: web({ revisionMode: 'next' }) });
+  assert.deepEqual([b.name, a.name, m.name].map((n) => n.split('_').pop()), ['V1R1', 'V2R1', 'V1R1']);
 });
 
 test('settings: reset puts this designer back to defaults and leaves the file alone', async () => {

@@ -29,8 +29,17 @@
     for (var i = 0; i < FILE_FIELDS.length; i++) {
       if (typeof file[FILE_FIELDS[i]] === 'string') merged[FILE_FIELDS[i]] = file[FILE_FIELDS[i]];
     }
+    // The client only ever comes from this file: saved in it, or read off frames already named in it.
+    var clientSource = '';
+    if (typeof file.client === 'string' && UK.naming.compact(file.client)) {
+      clientSource = 'file';
+    } else {
+      merged.client = UK.renamer.detectClient();
+      if (merged.client) clientSource = 'frames';
+    }
     var flatten = stored.flatten && typeof stored.flatten === 'object' ? stored.flatten : {};
     return {
+      clientSource: clientSource,
       renamer: UK.naming.normalize(merged),
       flatten: { scale: UK.flatten.SCALES.indexOf(Number(flatten.scale)) === -1 ? 2 : Number(flatten.scale) },
       fileHasOwn: Object.keys(file).length > 0
@@ -91,6 +100,38 @@
     'selection.get': function () { return selectionInfo(); },
 
     'rename.preview': function (payload) { return UK.renamer.preview(payload); },
+    /** One click: rename the selection, then remember the project choices in the file. */
+    'rename.run': async function (payload) {
+      var result = await UK.renamer.run(payload);
+      if (!result.stale) {
+        var settings = UK.naming.normalize(payload && payload.settings);
+        saveFileData(settings);
+        try { await saveSettings({ renamer: settings, flatten: payload && payload.flatten }); } catch (e) { /* not fatal */ }
+      }
+      return result;
+    },
+
+    /** The client for this file, if the file can tell us. */
+    'client.detect': function () {
+      var file = readFileData();
+      if (typeof file.client === 'string' && UK.naming.compact(file.client)) return { client: file.client, source: 'file' };
+      var found = UK.renamer.detectClient();
+      return { client: found, source: found ? 'frames' : '' };
+    },
+    'client.example': function (payload) { return UK.renamer.clientExample(payload); },
+    /** Saves the client in the file so nobody working on it is asked again. */
+    'client.set': function (payload) {
+      var client = UK.collapse(payload && payload.client).slice(0, 120);
+      if (!UK.naming.compact(client)) throw UK.userError('Type the client\u2019s name.');
+      var saved = false;
+      try {
+        var data = readFileData();
+        data.client = client;
+        figma.root.setPluginData(FILE_KEY, JSON.stringify(data));
+        saved = true;
+      } catch (e) { saved = false; }   // view-only files: use it for this session anyway
+      return { client: client, saved: saved };
+    },
     'rename.apply': async function (payload) {
       var result = await UK.renamer.apply(payload);
       if (!result.stale) {
