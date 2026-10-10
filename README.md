@@ -1,6 +1,6 @@
 # UtilityKit
 
-A Figma plugin · v1.1.2
+A Figma plugin · v1.2.0
 
 Rename selected layers, flatten them into images, and manage project Drive links — all in one place.
 
@@ -82,9 +82,16 @@ Opens with a scan of the page named **For Designers** (the name match ignores ca
 
 **What it cannot do — by design.** A Figma plugin can only read the Figma file. UtilityKit does not look inside Google Drive, cannot tell whether a link works or who has access, and never uploads, downloads or syncs files. The plugin's only network permission is the GitHub address used by *Check for updates*, so it cannot contact Google even if it wanted to. It manages links, not files.
 
+### Settings
+
+The gear in the top right opens Settings from any screen; Back returns to where you were.
+
+- **Updates** — shows the installed version, with *Check for updates* and a link to the repository.
+- **Saved settings** — *Reset my settings* puts the naming format, formatting options and flatten resolution back to their defaults (after a confirmation). Client, Design Phase and Version stored inside a file stay with that file.
+
 ### Check for updates
 
-**Home → Check for updates** (bottom right) reads `version.json` from
+**Home → Check for updates** (bottom right), or the same button in **Settings**, reads `version.json` from
 `github.com/hiteshramawat01-oss/UtilityKit` and compares it with the version you are running.
 
 - Up to date → a short confirmation.
@@ -162,7 +169,7 @@ Requires Node 18+ (no packages to install).
 
 ```bash
 node build.js          # rebuild code.js and ui.html after editing src/
-npm test               # build + 49 unit tests
+npm test               # build + 50 unit tests
 python3 test/e2e.py    # optional: drives the real UI in a headless browser (needs Playwright)
 ```
 
@@ -172,7 +179,7 @@ To add a utility: add a module in `src/plugin`, register its requests in `90-mai
 
 ## How it was tested
 
-- **49 unit tests** cover the naming rules, preview/apply, stale previews, failures, resizing, saved settings, flatten/merge/tiling/replace, export failures, Drive link scanning/adding/URL validation, and the update check (version comparison, bad or hostile `version.json`, offline, private repo).
+- **50 unit tests** cover the naming rules, preview/apply, stale previews, failures, resizing, saved settings, flatten/merge/tiling/replace, export failures, Drive link scanning/adding/URL validation, and the update check (version comparison, bad or hostile `version.json`, offline, private repo).
 - `update.command` was run on every path (ZIP download, git pull, failed download, wrong download, wrong folder). `update.bat` has not been run on Windows.
 - **An end-to-end run** drives the real interface against the real plugin logic through every screen, including the narrow-window and dark-theme layouts.
 - Both run against a **simulated Figma API**. The plugin has not yet been exercised inside the Figma app itself, so do a first run on a scratch file. The places most likely to behave differently in real Figma are *Replace originals* inside auto-layout or component instances, and *Merge* across layers nested in rotated parents.

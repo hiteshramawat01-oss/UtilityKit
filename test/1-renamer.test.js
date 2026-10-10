@@ -286,3 +286,26 @@ test('settings: saved per designer, client/phase/version remembered per file', a
   assert.equal(init.data.settings.renamer.client, 'Acme');
   assert.equal(init.data.settings.renamer.version, '4');
 });
+
+test('settings: reset puts this designer back to defaults and leaves the file alone', async () => {
+  const { env, call, UK } = load();
+  const a = env.add('FRAME', { name: 'home' });
+  env.select([a]);
+  const settings = base({ client: 'Acme', separator: 'pipe', resize: true });
+  const pre = await call('rename.preview', { settings });
+  await call('rename.apply', { settings, expected: pre.data.expected, flatten: { scale: 4 } });
+  let init = await call('init');
+  assert.equal(init.data.settings.renamer.separator, 'pipe');
+  assert.equal(init.data.settings.flatten.scale, 4);
+
+  const res = await call('settings.reset');
+  assert.equal(JSON.stringify(res.data.renamer), JSON.stringify(UK.naming.defaults()));
+  assert.equal(res.data.flatten.scale, 2);
+  assert.equal(a.name, 'Home | Design | Acme | V1', 'reset never touches layers');
+
+  init = await call('init');
+  assert.equal(init.data.settings.renamer.separator, 'dash');
+  assert.equal(init.data.settings.renamer.resize, false);
+  assert.equal(init.data.settings.flatten.scale, 2);
+  assert.equal(init.data.settings.renamer.client, 'Acme', 'the file still remembers its own client');
+});

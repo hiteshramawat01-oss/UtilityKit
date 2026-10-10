@@ -80,6 +80,12 @@
       };
     },
     'settings.save': saveSettings,
+    /** Puts this designer's saved choices back to the defaults. Files keep their own client / phase / version. */
+    'settings.reset': async function () {
+      var fresh = { renamer: UK.naming.defaults(), flatten: { scale: 2 } };
+      await figma.clientStorage.setAsync(STORAGE_KEY, fresh);
+      return fresh;
+    },
     'selection.get': function () { return selectionInfo(); },
 
     'rename.preview': function (payload) { return UK.renamer.preview(payload); },

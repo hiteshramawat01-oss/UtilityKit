@@ -8,7 +8,7 @@
  * Syntax is kept conservative on purpose (no optional chaining, no object
  * spread) because Figma's sandbox is stricter than a browser.
  */
-var UK = { VERSION: '1.1.2' };   // filled in from version.json by build.js
+var UK = { VERSION: '1.2.0' };   // filled in from version.json by build.js
 
 /** An error whose message is safe and useful to show to the designer. */
 UK.userError = function (message, code) {
@@ -1400,6 +1400,12 @@ UK.updates = (function () {
       };
     },
     'settings.save': saveSettings,
+    /** Puts this designer's saved choices back to the defaults. Files keep their own client / phase / version. */
+    'settings.reset': async function () {
+      var fresh = { renamer: UK.naming.defaults(), flatten: { scale: 2 } };
+      await figma.clientStorage.setAsync(STORAGE_KEY, fresh);
+      return fresh;
+    },
     'selection.get': function () { return selectionInfo(); },
 
     'rename.preview': function (payload) { return UK.renamer.preview(payload); },

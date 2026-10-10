@@ -24,7 +24,7 @@ def run():
         ev = page.evaluate
 
         # ── Home ──
-        expect(ui.locator("#version")).to_have_text("v1.1.2")
+        expect(ui.locator("#version")).to_have_text("v1.2.0")
         expect(ui.locator("#selText")).to_have_text("0 selected")
         shot("01-home")
 
@@ -38,14 +38,14 @@ def run():
         expect(ui.locator("#toast")).to_contain_text("Couldn’t reach GitHub")
         ev("window.__versionJson = JSON.stringify({ version: UK.VERSION })")
         ui.locator("#updCheck").click()
-        expect(ui.locator("#toast")).to_have_text("You’re up to date (v1.1.2).")
+        expect(ui.locator("#toast")).to_have_text("You’re up to date (v1.2.0).")
         expect(ui.locator("#updBox")).to_be_hidden()
-        ev("""window.__versionJson = JSON.stringify({ version: '1.2.0', released: '2026-11-02',
+        ev("""window.__versionJson = JSON.stringify({ version: '9.9.0', released: '2026-11-02',
               notes: ['New: Export presets.', 'Fix: renaming inside instances.'],
               download: 'https://evil.example.com/malware.zip' })""")
         ui.locator("#updCheck").click()
-        expect(ui.locator("#updBox")).to_contain_text("Version 1.2.0 is available")
-        expect(ui.locator("#updBox")).to_contain_text("You have v1.1.2. Released 2026-11-02.")
+        expect(ui.locator("#updBox")).to_contain_text("Version 9.9.0 is available")
+        expect(ui.locator("#updBox")).to_contain_text("You have v1.2.0. Released 2026-11-02.")
         expect(ui.locator("#updBox li")).to_have_count(2)
         expect(ui.locator("#updCheck")).to_have_text("Check for updates")
         shot("01b-home-update")
@@ -55,6 +55,28 @@ def run():
         ev("env.log.opened.length = 0")
         ui.locator("#updBox .btn", has_text="Later").click()
         expect(ui.locator("#updBox")).to_be_hidden()
+
+        # ── Settings (gear, top right) ──
+        box = ui.locator("#openSettings").bounding_box()
+        assert box["x"] + box["width"] > 360 - 16 and box["y"] < 48, "gear sits in the top-right corner"
+        ui.locator("#openSettings").click()
+        expect(ui.locator("#title")).to_have_text("Settings")
+        expect(ui.locator("#openSettings")).to_be_hidden()
+        expect(ui.locator("#stVersion")).to_have_text("Installed: v1.2.0")
+        expect(ui.locator("#stUpdBox")).to_be_hidden()               # "Later" was pressed on Home
+        ev("window.__versionJson = JSON.stringify({ version: '3.0.0', notes: ['New: something.'] })")
+        ui.locator("#stCheck").click()
+        expect(ui.locator("#stUpdBox")).to_contain_text("Version 3.0.0 is available")
+        expect(ui.locator("#stCheck")).to_have_text("Check for updates")
+        ui.locator("#stRepo").click()
+        page.wait_for_function("env.log.opened.length === 1")
+        assert ev("env.log.opened") == ["https://github.com/hiteshramawat01-oss/UtilityKit"]
+        ev("env.log.opened.length = 0")
+        shot("01c-settings")
+        ui.locator("#stUpdBox .btn", has_text="Later").click()
+        ui.locator("#back").click()
+        expect(ui.locator("#brand")).to_be_visible()
+        expect(ui.locator("#openSettings")).to_be_visible()
 
         # ── Layer Renamer ──
         ui.locator('[data-go="renamer"]').click()
@@ -122,6 +144,24 @@ def run():
         # settings were saved and come back
         assert ev("JSON.parse(env.storage['utilitykit.settings.v1']).renamer.client") == "acme corp"
         assert ev("JSON.parse(figma.root.getPluginData('utilitykit.file.v1')).client") == "acme corp"
+
+        # ── Settings: reset, opened from inside a utility, and Back returns there ──
+        ui.locator('[data-go="renamer"]').click()
+        ui.locator("#openSettings").click()
+        ui.locator("#stReset").click()
+        expect(ui.locator("#stResetConfirm")).to_be_visible()
+        ui.locator("#stResetCancel").click()
+        assert ev("JSON.parse(env.storage['utilitykit.settings.v1']).renamer.client") == "acme corp", "cancel changes nothing"
+        ui.locator("#stReset").click()
+        shot("01d-settings-reset")
+        ui.locator("#stResetYes").click()
+        expect(ui.locator("#toast")).to_have_text("Settings reset to defaults")
+        assert ev("JSON.parse(env.storage['utilitykit.settings.v1']).renamer.client") == ""
+        assert ev("JSON.parse(figma.root.getPluginData('utilitykit.file.v1')).client") == "acme corp", "the file keeps its own client"
+        ui.locator("#back").click()
+        expect(ui.locator("#title")).to_have_text("Layer Renamer")
+        expect(ui.locator('[data-key="client"] input.input')).to_have_value("")
+        ui.locator("#back").click()
 
         # ── Flatten & Merge ──
         ui.locator('[data-go="flatten"]').click()

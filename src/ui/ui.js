@@ -23,7 +23,8 @@
     locate: '<circle cx="8" cy="8" r="4"/><path d="M8 1.5v2.5M8 12v2.5M1.5 8H4M12 8h2.5"/>',
     info: '<circle cx="8" cy="8" r="5.5"/><path d="M8 7.3v3.4M8 5.2v.1"/>',
     warn: '<path d="M8 2.6 14 13H2L8 2.6ZM8 6.6v3M8 11.3v.1"/>',
-    success: '<circle cx="8" cy="8" r="5.5"/><path d="m5.6 8.2 1.7 1.7 3.1-3.4"/>'
+    success: '<circle cx="8" cy="8" r="5.5"/><path d="m5.6 8.2 1.7 1.7 3.1-3.4"/>',
+    settings: '<g transform="scale(.6667)" stroke-width="2.25"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></g>'
   };
 
   function svg(name) {
@@ -111,7 +112,7 @@
     driveBusy: false
   };
 
-  var TITLES = { renamer: 'Layer Renamer', preview: 'Rename Preview', flatten: 'Flatten & Merge', drive: 'Google Drive Links' };
+  var TITLES = { renamer: 'Layer Renamer', preview: 'Rename Preview', flatten: 'Flatten & Merge', drive: 'Google Drive Links', settings: 'Settings' };
   var PARENT = { renamer: 'home', flatten: 'home', drive: 'home', preview: 'renamer' };
   var PLACEHOLDERS = { page: 'e.g. Home', phase: 'e.g. Design', client: 'Client name', version: 'e.g. 1' };
 
@@ -155,6 +156,8 @@
   // ── navigation ──────────────────────────────────────────────────────────
 
   function go(screen) {
+    // Settings can be opened from anywhere; remember where to go back to.
+    if (screen === 'settings' && state.screen !== 'settings') state.settingsFrom = state.screen;
     state.screen = screen;
     $('app').setAttribute('data-screen', screen);
     var screens = document.querySelectorAll('.screen');
@@ -164,7 +167,9 @@
     $('brand').hidden = !home;
     $('title').hidden = home;
     $('title').textContent = TITLES[screen] || '';
+    $('openSettings').hidden = screen === 'settings';
     $('toast').hidden = true;
+    if (screen === 'settings') { $('stResetConfirm').hidden = true; $('stReset').hidden = false; renderUpdate(); }
     if (screen === 'renamer') refreshExample();
     if (screen === 'flatten') { state.flatten.result = null; state.flatten.pendingMode = null; refreshSummary(); }
     if (screen === 'drive') scanDrive();
@@ -174,6 +179,7 @@
 
   function goBack() {
     if (state.screen === 'flatten' && state.flatten.pendingMode) { state.flatten.pendingMode = null; renderFlatten(); return; }
+    if (state.screen === 'settings') { go(state.settingsFrom || 'home'); return; }
     go(PARENT[state.screen] || 'home');
   }
 
@@ -702,8 +708,8 @@
     });
   }
 
-  function checkUpdates() {
-    var btn = $('updCheck');
+  function checkUpdates(buttonId) {
+    var btn = $(buttonId);
     if (state.updateBusy) return;
     state.updateBusy = true;
     btn.disabled = true;
@@ -719,7 +725,7 @@
       state.update = res;
       state.updateDismissed = false;
       renderUpdate();
-      if (res.updateAvailable) { $('toast').hidden = true; $('updBox').scrollIntoView({ block: 'nearest' }); }
+      if (res.updateAvailable) { $('toast').hidden = true; $(state.screen === 'settings' ? 'stUpdBox' : 'updBox').scrollIntoView({ block: 'nearest' }); }
       else if (res.ahead) toast('You\u2019re on v' + res.current + ', newer than the published v' + res.latest + '.');
       else toast('You\u2019re up to date (v' + res.current + ').');
     }).catch(function (err) { finish(); fail(err); });
@@ -732,7 +738,12 @@
   }
 
   function renderUpdate() {
-    var box = clear($('updBox'));
+    renderUpdateInto($('updBox'));
+    renderUpdateInto($('stUpdBox'));
+  }
+
+  function renderUpdateInto(box) {
+    clear(box);
     var u = state.update;
     if (!u || !u.updateAvailable || state.updateDismissed) { box.hidden = true; return; }
     var extra = h('div', { class: 'note-body' },
@@ -747,11 +758,37 @@
     box.hidden = false;
   }
 
+  // ── Settings ────────────────────────────────────────────────────────────
+
+  function resetSettings() {
+    var btn = $('stResetYes');
+    btn.disabled = true;
+    call('settings.reset').then(function (fresh) {
+      btn.disabled = false;
+      state.settings = fresh.renamer;
+      state.flatten.scale = fresh.flatten.scale;
+      state.preview = null;
+      state.applied = null;
+      renderFields();
+      renderRenamerOptions();
+      $('rnAdvanced').open = false;
+      $('stResetConfirm').hidden = true;
+      $('stReset').hidden = false;
+      toast('Settings reset to defaults');
+    }).catch(function (err) { btn.disabled = false; fail(err); });
+  }
+
   // ── wiring ──────────────────────────────────────────────────────────────
 
   function bind() {
     $('back').addEventListener('click', goBack);
-    $('updCheck').addEventListener('click', checkUpdates);
+    $('updCheck').addEventListener('click', function () { checkUpdates('updCheck'); });
+    $('openSettings').addEventListener('click', function () { go('settings'); });
+    $('stCheck').addEventListener('click', function () { checkUpdates('stCheck'); });
+    $('stRepo').addEventListener('click', function () { openUpdate('page'); });
+    $('stReset').addEventListener('click', function () { $('stReset').hidden = true; $('stResetConfirm').hidden = false; });
+    $('stResetCancel').addEventListener('click', function () { $('stResetConfirm').hidden = true; $('stReset').hidden = false; });
+    $('stResetYes').addEventListener('click', resetSettings);
     var tools = document.querySelectorAll('[data-go]');
     for (var i = 0; i < tools.length; i++) {
       tools[i].addEventListener('click', function (e) { go(e.currentTarget.getAttribute('data-go')); });
@@ -841,6 +878,7 @@
       state.fields = data.fields || state.fields;
       state.selection = data.selection;
       $('version').textContent = 'v' + data.version;
+      $('stVersion').textContent = 'Installed: v' + data.version;
       $('rnResizeW').textContent = data.resizeWidth;
       renderSelection();
       renderFields();
