@@ -71,7 +71,6 @@ i[data-icon] { display: inline-flex; width: 16px; height: 16px; flex: none; }
 .mark { display: inline-flex; flex: none; }
 .brand-text { display: flex; flex-direction: column; line-height: 1.2; min-width: 0; }
 .brand-name { font-size: 13px; font-weight: 650; letter-spacing: -.005em; }
-.brand-by { font-size: 10.5px; color: var(--muted); }
 .bar-title { flex: 1; min-width: 0; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .icon-btn { flex: none; width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--muted); cursor: pointer; padding: 0; }
 .icon-btn:hover { background: var(--sunken); color: var(--text); }
@@ -278,7 +277,6 @@ html.figma-dark .toast.error { background: #D9473E; color: #fff; }
   .field { grid-template-columns: 28px minmax(0, 1fr) auto; }
   .field > .input, .field > .select { grid-column: 1 / -1; grid-row: 2; }
   .field-extra { grid-column: 1 / -1; }
-  .brand-by { display: none; }
   .opt { flex-direction: column; align-items: stretch; gap: 6px; }
   .seg { display: flex; }
   .seg button { flex: 1; padding: 0 4px; min-width: 0; }

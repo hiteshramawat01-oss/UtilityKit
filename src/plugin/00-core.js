@@ -1,5 +1,5 @@
 /*
- * UtilityKit by CT Designers — plugin logic (Figma sandbox).
+ * UtilityKit — plugin logic (Figma sandbox).
  *
  * This file is built from src/plugin/*.js by build.js. The sandbox never
  * touches the DOM; it talks to the interface (ui.html) only through messages.

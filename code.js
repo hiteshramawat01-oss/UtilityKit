@@ -1,6 +1,6 @@
 // ---- 00-core.js ----
 /*
- * UtilityKit by CT Designers — plugin logic (Figma sandbox).
+ * UtilityKit — plugin logic (Figma sandbox).
  *
  * This file is built from src/plugin/*.js by build.js. The sandbox never
  * touches the DOM; it talks to the interface (ui.html) only through messages.
@@ -8,7 +8,7 @@
  * Syntax is kept conservative on purpose (no optional chaining, no object
  * spread) because Figma's sandbox is stricter than a browser.
  */
-var UK = { VERSION: '1.1.1' };   // filled in from version.json by build.js
+var UK = { VERSION: '1.1.2' };   // filled in from version.json by build.js
 
 /** An error whose message is safe and useful to show to the designer. */
 UK.userError = function (message, code) {
