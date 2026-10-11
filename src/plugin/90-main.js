@@ -37,21 +37,16 @@
       merged.client = UK.renamer.detectClient();
       if (merged.client) clientSource = 'frames';
     }
-    var flatten = stored.flatten && typeof stored.flatten === 'object' ? stored.flatten : {};
     return {
       clientSource: clientSource,
       renamer: UK.naming.normalize(merged),
-      flatten: { scale: UK.flatten.SCALES.indexOf(Number(flatten.scale)) === -1 ? 2 : Number(flatten.scale) },
       fileHasOwn: Object.keys(file).length > 0
     };
   }
 
   async function saveSettings(payload) {
     payload = payload || {};
-    var data = {
-      renamer: UK.naming.persistable(payload.renamer),
-      flatten: { scale: payload.flatten && UK.flatten.SCALES.indexOf(Number(payload.flatten.scale)) !== -1 ? Number(payload.flatten.scale) : 2 }
-    };
+    var data = { renamer: UK.naming.persistable(payload.renamer) };
     await figma.clientStorage.setAsync(STORAGE_KEY, data);
     return { saved: true };
   }
@@ -86,14 +81,13 @@
         install: UK.updates.installInfo(),
         settings: await loadSettings(),
         selection: selectionInfo(),
-        naming: { phases: UK.naming.PHASES, deliverables: UK.naming.DELIVERABLES, variations: UK.naming.VARIATIONS, devices: UK.naming.DEVICES },
-        scales: UK.flatten.SCALES
+        naming: { phases: UK.naming.PHASES, deliverables: UK.naming.DELIVERABLES, variations: UK.naming.VARIATIONS, devices: UK.naming.DEVICES }
       };
     },
     'settings.save': saveSettings,
     /** Puts this designer's saved choices back to the defaults. Files keep their own client and project choices. */
     'settings.reset': async function () {
-      var fresh = { renamer: UK.naming.defaults(), flatten: { scale: 2 } };
+      var fresh = { renamer: UK.naming.defaults() };
       await figma.clientStorage.setAsync(STORAGE_KEY, fresh);
       return fresh;
     },
@@ -106,7 +100,7 @@
       if (!result.stale) {
         var settings = UK.naming.normalize(payload && payload.settings);
         saveFileData(settings);
-        try { await saveSettings({ renamer: settings, flatten: payload && payload.flatten }); } catch (e) { /* not fatal */ }
+        try { await saveSettings({ renamer: settings }); } catch (e) { /* not fatal */ }
       }
       return result;
     },
@@ -137,13 +131,13 @@
       if (!result.stale) {
         var settings = UK.naming.normalize(payload && payload.settings);
         saveFileData(settings);
-        try { await saveSettings({ renamer: settings, flatten: payload && payload.flatten }); } catch (e) { /* not fatal */ }
+        try { await saveSettings({ renamer: settings }); } catch (e) { /* not fatal */ }
       }
       return result;
     },
 
-    'flatten.summary': function (payload) { return UK.flatten.summary(payload); },
-    'flatten.run': function (payload) { return UK.flatten.run(payload); },
+    'flatten.summary': function () { return UK.flatten.summary(); },
+    'flatten.run': function () { return UK.flatten.run(); },
 
     'drive.scan': function () { return UK.drive.scan(); },
     'drive.add': function (payload) { return UK.drive.add(payload); },

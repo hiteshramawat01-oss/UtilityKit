@@ -92,8 +92,6 @@
       }
     } else if (msg.type === 'selection') {
       onSelection(msg.data);
-    } else if (msg.type === 'progress') {
-      onProgress(msg.data);
     }
   });
 
@@ -103,12 +101,14 @@
     screen: 'home',
     selection: { count: 0, names: [] },
     settings: null,          // renamer settings (shape defined by the plugin logic)
-    flatten: { scale: 2, replace: false, summary: null, result: null, pendingMode: null, busy: false },
+    flatten: { summary: null, result: null, busy: false },
     askingClient: false,
     drive: null,
     driveBusy: false,
     version: '',
     autoPageType: '',        // the page type read from the current Figma page
+    versionsAuto: '',        // what the selected frames would get without typing anything
+    versionsEdited: false,
     install: null,           // which copy is running: the plugin folder's, or a downloaded update
     installing: false
   };
@@ -172,7 +172,7 @@
     $('toast').hidden = true;
     if (screen === 'settings') { $('stResetConfirm').hidden = true; $('stReset').hidden = false; renderUpdate(); }
     if (screen === 'renamer') enterRenamer();
-    if (screen === 'flatten') { state.flatten.result = null; state.flatten.pendingMode = null; refreshSummary(); }
+    if (screen === 'flatten') { state.flatten.result = null; refreshSummary(); }
     if (screen === 'drive') scanDrive();
     var first = document.querySelector('.screen:not([hidden]) .scroll');
     if (first) first.scrollTop = 0;
@@ -180,7 +180,6 @@
 
   function goBack() {
     if (state.screen === 'renamer' && state.askingClient && state.settings.client) { showClientAsk(false); return; }
-    if (state.screen === 'flatten' && state.flatten.pendingMode) { state.flatten.pendingMode = null; renderFlatten(); return; }
     if (state.screen === 'settings') { go(state.settingsFrom || 'home'); return; }
     go(PARENT[state.screen] || 'home');
   }
@@ -194,10 +193,13 @@
   function onSelection(sel) {
     state.selection = sel || { count: 0, names: [] };
     renderSelection();
-    if (state.screen === 'renamer') refreshExample();
-    else if (state.screen === 'flatten') {
+    if (state.screen === 'renamer') {
+      // A typed version belongs to the frames it was typed for.
+      state.settings.versions = '';
+      state.versionsEdited = false;
+      refreshExample();
+    } else if (state.screen === 'flatten') {
       var f = state.flatten;
-      f.pendingMode = null;
       // keep the "done" message only while its result is still what is selected
       if (f.result && f.result.selectionKey !== state.selection.key) f.result = null;
       refreshSummary();
@@ -211,7 +213,7 @@
   function saveSettingsSoon() {
     clearTimeout(saveTimer);
     saveTimer = setTimeout(function () {
-      call('settings.save', { renamer: state.settings, flatten: { scale: state.flatten.scale } }).catch(function () { /* saving is best-effort */ });
+      call('settings.save', { renamer: state.settings }).catch(function () { /* saving is best-effort */ });
     }, 500);
   }
 
@@ -247,7 +249,6 @@
     $('rnClientName').textContent = s.client;
     $('rnWeb').hidden = marketing;
     $('rnMarketing').hidden = !marketing;
-    $('rnAdvanced').hidden = marketing;
 
     $('rnPageType').value = s.pageType || state.autoPageType || '';
     setSeg($('rnPhase'), s.phase);
@@ -256,28 +257,7 @@
     $('rnTask').value = s.task;
     $('rnVariation').value = s.variation;
 
-    $('rnVersionMode').value = s.versionMode;
-    $('rnVersionValue').hidden = s.versionMode !== 'set';
-    $('rnVersionValue').value = s.versionValue;
-    $('rnRevisionMode').value = s.versionMode === 'next' && s.revisionMode !== 'set' ? 'none' : s.revisionMode;
-    $('rnRevisionMode').disabled = false;
-    $('rnRevisionValue').hidden = s.revisionMode !== 'set';
-    $('rnRevisionValue').value = s.revisionValue;
-    $('rnVersionHelp').textContent =
-      s.versionMode === 'auto' ? 'Frames that already have a version keep it. New frames are numbered left to right: V1, V2, V3.'
-      : s.versionMode === 'next' ? 'Every frame moves up one version and starts again without a revision.'
-      : 'Frames are numbered left to right starting at V' + s.versionValue + '.';
-
-    $('rnResize').checked = s.resize;
-    $('rnResizeModes').hidden = !s.resize;
-    setSeg($('rnResizeTarget'), s.resizeTarget);
-    var radios = document.getElementsByName('rnResizeMode');
-    for (var i = 0; i < radios.length; i++) radios[i].checked = radios[i].value === s.resizeMode;
-    if (s.resize) $('rnAdvanced').open = true;
-  }
-
-  function renderVersionHelpOnly() {
-    $('rnVersionHelp').textContent = 'Frames are numbered left to right starting at V' + state.settings.versionValue + '.';
+    $('rnVersions').value = state.versionsEdited ? s.versions : (state.versionsAuto || '');
   }
 
   function devicesText(summary, selected) {
@@ -308,6 +288,15 @@
         ? 'Read from this page, “' + p.pageName + '”. Type here to change it.'
         : 'The page “' + p.pageName + '” has no usable name. Type a page type.';
       $('rnDevices').textContent = devicesText(p.summary, p.counts.selected);
+      // The Version box shows what the frames would get until the designer types something else.
+      state.versionsAuto = p.versionsAuto || '';
+      var versionInput = $('rnVersions');
+      if (!state.versionsEdited && document.activeElement !== versionInput) versionInput.value = state.versionsAuto;
+      var versionsLine = $('rnExampleVersions');
+      versionsLine.hidden = !(p.counts.selected > 1 && !p.error);
+      if (!versionsLine.hidden) {
+        versionsLine.textContent = 'Versions, left to right: ' + p.versionList.join(' \u00b7 ') + (p.versionCount > p.versionList.length ? ' \u2026' : '');
+      }
 
       if (!p.counts.selected) {
         box.classList.add('is-empty');
@@ -330,7 +319,7 @@
       box.classList.remove('is-empty');
       name.textContent = row.proposed;
       from.textContent = (row.changed ? 'from “' + row.current + '”' : 'Already named this way') + more;
-      var todo = p.counts.willRename + (p.resize ? p.counts.willResize : 0);
+      var todo = p.counts.willRename;
       btn.disabled = todo === 0;
       btn.textContent = todo === 0 ? 'Already named' : 'Rename ' + plural(p.counts.selected, 'frame');
     }).catch(fail);
@@ -409,11 +398,11 @@
     var btn = $('rnRenameBtn');
     if (btn.disabled) return;
     setBusy(btn, true, 'Renaming…');
-    call('rename.run', { settings: state.settings, flatten: { scale: state.flatten.scale } }).then(function (res) {
+    call('rename.run', { settings: state.settings }).then(function (res) {
       setBusy(btn, false);
-      // "Next version" and friends are one-off actions; don't leave them armed.
-      state.settings.versionMode = 'auto';
-      state.settings.revisionMode = 'keep';
+      // A typed version is a one-off; go back to showing what the frames have.
+      state.settings.versions = '';
+      state.versionsEdited = false;
       renderRenamerOptions();
       renderRenameResult(res);
       refreshExample();
@@ -422,19 +411,12 @@
 
   function renderRenameResult(res) {
     var box = clear($('rnResult'));
-    var bits = [];
-    if (res.renamed) bits.push('Renamed ' + plural(res.renamed, 'frame'));
-    if (res.resizeRequested && res.resized) bits.push('resized ' + res.resized + ' to ' + res.resizeTarget + ' px');
-    var message = bits.length ? bits.join(', ') + '. Undo with ⌘Z / Ctrl+Z.' : 'Nothing needed changing.';
+    var message = res.renamed ? 'Renamed ' + plural(res.renamed, 'frame') + '. Undo with ⌘Z / Ctrl+Z.' : 'Nothing needed changing.';
     if (!res.failedCount) toast(message);
-    box.hidden = !(res.failedCount || res.resizeSkippedCount);
+    box.hidden = !res.failedCount;
     if (res.failedCount) {
       box.appendChild(note('error', plural(res.failedCount, 'frame') + ' could not be renamed',
         res.failed.map(function (f) { return f.name + ' — ' + f.reason; })));
-    }
-    if (res.resizeSkippedCount) {
-      box.appendChild(note('warn', plural(res.resizeSkippedCount, 'layer') + ' kept their size',
-        res.resizeSkipped.map(function (f) { return f.name + ' — ' + f.reason; })));
     }
     if (!box.hidden) box.scrollIntoView({ block: 'nearest' });
   }
@@ -445,121 +427,97 @@
 
   function refreshSummary() {
     var mine = ++summarySeq;
-    call('flatten.summary', { scale: state.flatten.scale }).then(function (s) {
+    call('flatten.summary').then(function (s) {
       if (mine !== summarySeq) return;
       state.flatten.summary = s;
       renderFlatten();
     }).catch(fail);
   }
 
+  function skippedLines(s) {
+    var lines = s.skipped.map(function (k) { return k.name + ' — ' + k.reason; });
+    if (s.skippedCount > s.skipped.length) lines.push('and ' + (s.skippedCount - s.skipped.length) + ' more');
+    return lines;
+  }
+
   function renderFlatten() {
     var f = state.flatten, s = f.summary;
-    setSeg($('flScale'), f.scale);
-    var radios = document.getElementsByName('flOriginals');
-    for (var i = 0; i < radios.length; i++) radios[i].checked = (radios[i].value === 'replace') === f.replace;
-
     var card = clear($('flSummary'));
-    var each = $('flEach'), merge = $('flMerge');
-    if (!f.busy) { setBusy(each, false); setBusy(merge, false); }
+    var merge = $('flMerge');
+    var name = s ? s.resultName : '[Print]';
+    var r = f.result;
+    // Right after a merge the new image is what is selected: show the result, not a second merge.
+    var justMade = !!r && r.selectionKey === state.selection.key;
+    card.hidden = justMade;
 
-    if (!s || !s.count) {
-      card.appendChild(h('div', { class: 'empty' }, h('b', null, 'Nothing selected'), h('span', null, 'Select one or more layers on the canvas to flatten.')));
+    if (justMade) {
+      // nothing to describe until other layers are selected
+    } else if (!s || !s.count) {
+      card.appendChild(h('div', { class: 'empty' }, h('b', null, 'Nothing selected'),
+        h('span', null, 'Select the layers to merge into one image.')));
     } else if (!s.usable) {
       card.appendChild(h('div', { class: 'card-head' }, h('h2', null, 'Selection')));
-      card.appendChild(note('warn', 'Nothing here can be flattened', s.skipped.map(function (k) { return k.name + ' — ' + k.reason; })));
+      card.appendChild(note('warn', 'Nothing here can be merged', skippedLines(s)));
     } else {
-      var m = s.merged;
-      card.appendChild(h('div', { class: 'card-head' }, h('h2', null, 'Selection'), h('span', { class: 'hint' }, 'Rendered as PNG')));
+      card.appendChild(h('div', { class: 'card-head' }, h('h2', null, 'Selection')));
       card.appendChild(h('div', { class: 'kv' }, h('span', null, 'Layers'), h('span', { class: 'big' }, num(s.usable))));
-      card.appendChild(h('div', { class: 'kv' }, h('span', null, s.usable > 1 ? 'Combined size' : 'Size'), h('span', null, num(m.width) + ' × ' + num(m.height) + ' px')));
-      card.appendChild(h('div', { class: 'kv' }, h('span', null, (s.usable > 1 ? 'Merged output' : 'Output') + ' at ' + s.scale + '×'), h('span', null, num(m.pxWidth) + ' × ' + num(m.pxHeight) + ' px')));
-      if (m.tooLarge) {
-        card.appendChild(note('warn', 'Too large at ' + s.scale + '×', ['Lower the resolution to flatten this selection as one image.']));
-      } else if (m.tiles > 1) {
-        card.appendChild(note('info', '', ['Figma caps image fills at ' + num(s.maxImage) + ' px, so ' + (s.usable > 1 ? 'the merged image' : 'this') +
-          ' will be ' + m.tiles + ' seamless tiles in one group — full quality, nothing downscaled.']));
+      card.appendChild(h('div', { class: 'kv' }, h('span', null, 'Image size'), h('span', null, num(s.width) + ' × ' + num(s.height) + ' px')));
+      card.appendChild(h('div', { class: 'kv' }, h('span', null, 'Layer name'), h('span', null, name)));
+      card.appendChild(h('p', { class: 'card-text' }, 'The image is placed beside your layers. Your layers stay as they are.'));
+      if (s.tooLarge) {
+        card.appendChild(note('warn', 'Too large to merge', ['Select fewer layers, or a smaller area.']));
+      } else if (s.tiles > 1) {
+        card.appendChild(note('info', '', ['Figma can’t hold one image larger than ' + num(s.maxImage) + ' px on a side, so this becomes ' +
+          s.tiles + ' pieces that fit together exactly, in one group named ' + name + '.']));
       }
       if (s.skippedCount) {
-        card.appendChild(note('warn', plural(s.skippedCount, 'layer') + ' will be skipped', s.skipped.map(function (k) { return k.name + ' — ' + k.reason; })));
+        card.appendChild(note('warn', plural(s.skippedCount, 'layer') + ' will be left out', skippedLines(s)));
       }
     }
 
     var banner = clear($('flBanner'));
-    var r = f.result;
     if (r) {
-      var title = r.mode === 'merge'
-        ? 'Merged ' + plural(r.sourceCount, 'layer') + ' into one image'
-        : 'Flattened ' + plural(r.createdCount, 'layer');
-      var lines = [];
-      lines.push(r.replaced ? plural(r.removed, 'original') + ' replaced.' : 'Originals untouched — the result is beside them and selected.');
-      if (r.tiled) lines.push('Large output was split into ' + r.tiles + ' seamless tiles and grouped.');
-      if (r.keptOriginals) lines.push(plural(r.keptOriginals, 'original') + ' could not be removed (for example inside an instance) and were kept.');
+      var lines = ['It is beside your layers and selected. Your layers were not changed.'];
+      if (r.tiled) lines.push('It is in ' + r.tiles + ' pieces that fit together exactly, in one group.');
+      if (r.skippedCount) lines.push(plural(r.skippedCount, 'layer') + ' left out.');
       lines.push('Undo with ⌘Z / Ctrl+Z.');
-      banner.appendChild(note('success', title, [lines.join(' ')],
+      banner.appendChild(note('success', (r.sourceCount > 1 ? 'Merged ' + plural(r.sourceCount, 'layer') + ' into ' : 'Made ') + r.name, [lines.join(' ')],
         h('button', { class: 'btn small', type: 'button', onclick: function () { call('canvas.show', { ids: r.created }).catch(fail); } }, 'Show on canvas')));
-      if (r.failedCount) banner.appendChild(note('error', plural(r.failedCount, 'layer') + ' failed', r.failed.map(function (k) { return k.name + ' — ' + k.reason; })));
     }
 
-    var usable = s ? s.usable : 0;
-    var confirming = !!f.pendingMode;
-    $('flActions').hidden = confirming;
-    $('flConfirm').hidden = !confirming;
-    if (confirming) {
-      $('flConfirmText').textContent = 'Replace ' + plural(usable, 'original layer') + ' with ' +
-        (f.pendingMode === 'merge' ? 'one merged image' : (usable === 1 ? 'a flattened image' : usable + ' flattened images')) +
-        '? The originals are removed once the image exists. You can undo this.';
-      $('flConfirmBtn').textContent = 'Replace ' + plural(usable, 'layer');
-    }
     if (!f.busy) {
-      if (usable <= 1) {
-        each.hidden = false; merge.hidden = true;
-        each.className = 'btn primary grow';
-        each.textContent = usable ? 'Flatten to image' : 'Select layers to flatten';
-        each.disabled = !usable || (s.merged && s.merged.tooLarge);
-      } else {
-        each.hidden = false; merge.hidden = false;
-        each.className = 'btn grow';
-        each.textContent = 'Flatten each (' + usable + ')';
-        each.disabled = false;
-        merge.textContent = 'Merge into one';
-        merge.disabled = !!(s.merged && s.merged.tooLarge);
-      }
+      setBusy(merge, false);
+      var usable = s && !justMade ? s.usable : 0;
+      merge.textContent = usable ? 'Merge into one' : (justMade ? 'Select other layers to merge again' : 'Select layers to merge');
+      merge.disabled = !usable || !!s.tooLarge;
     }
   }
 
-  function startFlatten(mode) {
+  /** One click: merge the selection into one image. Originals are never changed. */
+  function runFlatten() {
     var f = state.flatten;
-    if (f.busy) return;
-    if (f.replace) { f.pendingMode = mode; renderFlatten(); return; }
-    runFlatten(mode, false);
-  }
-
-  function runFlatten(mode, confirmed) {
-    var f = state.flatten;
-    var btn = mode === 'merge' ? $('flMerge') : $('flEach');
+    var btn = $('flMerge');
+    if (f.busy || btn.disabled) return;
     f.busy = true;
-    f.pendingMode = null;
     f.result = null;
     renderFlatten();
-    $('flEach').disabled = true; $('flMerge').disabled = true;
-    setBusy(btn, true, mode === 'merge' ? 'Merging…' : 'Flattening…');
-    call('flatten.run', { mode: mode, scale: f.scale, replace: f.replace, confirmReplace: confirmed === true }).then(function (res) {
+    setBusy(btn, true, 'Merging…');
+    call('flatten.run').then(function (res) {
       f.busy = false;
       f.result = res;
       setBusy(btn, false);
-      refreshSummary();
+      // The new image is selected now; make sure the screen knows before it draws.
+      call('selection.get').then(function (sel) {
+        state.selection = sel;
+        renderSelection();
+        refreshSummary();
+      }).catch(refreshSummary);
     }).catch(function (err) {
       f.busy = false;
       setBusy(btn, false);
       renderFlatten();
-      clear($('flBanner')).appendChild(note('error', 'Couldn’t flatten', [err.message]));
+      clear($('flBanner')).appendChild(note('error', 'Couldn’t merge', [err.message]));
     });
-  }
-
-  function onProgress(p) {
-    if (!state.flatten.busy || !p || p.total < 2 || p.done >= p.total) return;
-    var btn = document.querySelector('#flActions .btn.busy');
-    if (btn) btn.textContent = 'Flattening ' + (p.done + 1) + ' of ' + p.total + '…';
   }
 
   // ── Google Drive Links ──────────────────────────────────────────────────
@@ -817,9 +775,7 @@
       var client = state.settings.client;        // the client belongs to the file, not to these settings
       state.settings = fresh.renamer;
       state.settings.client = client;
-      state.flatten.scale = fresh.flatten.scale;
       renderRenamerOptions();
-      $('rnAdvanced').open = false;
       $('stResetConfirm').hidden = true;
       $('stReset').hidden = false;
       toast('Settings reset to defaults');
@@ -860,7 +816,6 @@
       modeInputs[mi].addEventListener('change', function (e) { state.settings.mode = e.target.value; renderRenamerOptions(); settingsChanged(); });
     }
     seg('rnPhase', 'phase');
-    seg('rnResizeTarget', 'resizeTarget', Number);
 
     // Page type: typing the page's own name (or nothing) means "read it from the page".
     $('rnPageType').addEventListener('input', function (e) {
@@ -875,29 +830,20 @@
     Object.keys(typed).forEach(function (id) {
       $(id).addEventListener('input', function (e) { state.settings[typed[id]] = e.target.value; settingsChanged(); });
     });
-    var ticks = { rnIncludeSize: 'includeSize', rnResize: 'resize' };
+    var ticks = { rnIncludeSize: 'includeSize' };
     Object.keys(ticks).forEach(function (id) {
       $(id).addEventListener('change', function (e) { state.settings[ticks[id]] = e.target.checked; renderRenamerOptions(); settingsChanged(); });
     });
-    $('rnVersionMode').addEventListener('change', function (e) {
-      state.settings.versionMode = e.target.value;
-      if (e.target.value === 'next' && state.settings.revisionMode !== 'set') state.settings.revisionMode = 'none';
-      if (e.target.value !== 'next' && state.settings.revisionMode === 'none') state.settings.revisionMode = 'keep';
-      renderRenamerOptions();
+    // Version: the box shows what the frames would get; typing replaces it.
+    $('rnVersions').addEventListener('input', function (e) {
+      var v = e.target.value;
+      state.versionsEdited = v.trim() !== '' && v !== state.versionsAuto;
+      state.settings.versions = state.versionsEdited ? v : '';
       settingsChanged();
     });
-    $('rnRevisionMode').addEventListener('change', function (e) { state.settings.revisionMode = e.target.value; renderRenamerOptions(); settingsChanged(); });
-    var numbers = { rnVersionValue: 'versionValue', rnRevisionValue: 'revisionValue' };
-    Object.keys(numbers).forEach(function (id) {
-      $(id).addEventListener('input', function (e) {
-        var n = Math.round(Number(e.target.value));
-        if (n >= 1 && n <= 999) { state.settings[numbers[id]] = n; settingsChanged(); if (id === 'rnVersionValue') renderVersionHelpOnly(); }
-      });
+    $('rnVersions').addEventListener('blur', function (e) {
+      if (!state.versionsEdited) e.target.value = state.versionsAuto || '';
     });
-    var modes = document.getElementsByName('rnResizeMode');
-    for (var m = 0; m < modes.length; m++) {
-      modes[m].addEventListener('change', function (e) { state.settings.resizeMode = e.target.value; settingsChanged(); });
-    }
     $('rnRenameBtn').addEventListener('click', runRename);
     $('rnClientChange').addEventListener('click', function () { showClientAsk(true); });
     $('rnAskGo').addEventListener('click', saveClient);
@@ -905,28 +851,8 @@
     $('rnAskInput').addEventListener('input', function () { clearTimeout(askTimer); askTimer = setTimeout(updateClientExample, 80); });
     $('rnAskInput').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); saveClient(); } });
 
-    // flatten
-    $('flScale').addEventListener('click', function (e) {
-      var b = e.target.closest('button');
-      if (!b || state.flatten.busy) return;
-      state.flatten.scale = Number(b.getAttribute('data-value'));
-      state.flatten.pendingMode = null;
-      state.flatten.result = null;
-      saveSettingsSoon();
-      refreshSummary();
-    });
-    var originals = document.getElementsByName('flOriginals');
-    for (var o = 0; o < originals.length; o++) {
-      originals[o].addEventListener('change', function (e) {
-        state.flatten.replace = e.target.value === 'replace';
-        state.flatten.pendingMode = null;
-        renderFlatten();
-      });
-    }
-    $('flEach').addEventListener('click', function () { startFlatten('each'); });
-    $('flMerge').addEventListener('click', function () { startFlatten('merge'); });
-    $('flCancel').addEventListener('click', function () { state.flatten.pendingMode = null; renderFlatten(); });
-    $('flConfirmBtn').addEventListener('click', function () { runFlatten(state.flatten.pendingMode, true); });
+    // flatten & merge
+    $('flMerge').addEventListener('click', runFlatten);
 
     // drive
     $('drAdd').addEventListener('click', addLink);
@@ -958,7 +884,6 @@
     renderSelection();
     call('init').then(function (data) {
       state.settings = data.settings.renamer;
-      state.flatten.scale = data.settings.flatten.scale;
       fillList('rnDeliverables', data.naming && data.naming.deliverables);
       fillList('rnVariations', data.naming && data.naming.variations);
       state.selection = data.selection;

@@ -1,11 +1,11 @@
 # UtilityKit
 
-A Figma plugin · v1.5.0
+A Figma plugin · v1.6.0
 
 Three everyday helpers in one small window:
 
 - **Layer Renamer** — name frames the way the team guideline asks, in one go.
-- **Flatten & Merge** — turn selected layers into an image.
+- **Flatten & Merge** — merge selected layers into one image.
 - **Google Drive Links** — find the project's Drive links in one click.
 
 ---
@@ -65,43 +65,45 @@ The client:
 - Web and Marketing use the same client.
 - If the file already has frames named to the guideline, the plugin reads the client from them and doesn't ask.
 
-Versions and revisions:
+Versions and revisions go in one box, **Version**:
 
-| Choice | What it does |
+| You type | You get |
 |---|---|
-| Version: **Automatic** | Frames that already have a version keep it. New frames get the next free number. Moving frames around never changes their versions. |
-| Version: **Next version (+1)** | Every frame moves up one (`V1` to `V2`) and starts again without a revision. |
-| Version: **Start at…** | Numbers the frames again from the number you type. |
-| Revision: **Keep as it is** | Leaves the revision alone. |
-| Revision: **Next revision (+1)** | `V1` becomes `V1R1`, `V1R1` becomes `V1R2`. |
-| Revision: **No revision** / **Set to…** | Removes the revision, or sets it to the number you type. |
+| `1` or `v1` | `V1` on every selected frame |
+| `1r2` | `V1R2` on every selected frame |
+| `r2` | each frame keeps its version and gets revision 2 |
+| `1, 2, 3` | `V1`, `V2`, `V3`, one per frame from left to right |
+| `1, 1r1, r2` | each frame gets its own value, in the same order |
+
+- When you select frames, the box already shows what they would get: the versions they have, or `V1`, `V2`, `V3` for new frames (Desktop and Mobile counted separately). Change it only if you want something else.
+- A list must have as many values as frames. If it doesn't, the live preview tells you and the button stays off.
+- With several frames, the live preview shows the versions in order, for example `V1 · V2 · V1R1`.
 
 Good to know:
 
 - Nothing changes until you press **Rename**. To undo, press ⌘Z (Mac) or Ctrl+Z (Windows).
 - The frame's old name is not used, apart from a version it already has. The rest comes from the page name, the frame's size and what you typed.
-- **Resize** (Web) can set frames to **Desktop 1600** or **Mobile 320** wide as it renames. It only changes frames, never text or shapes.
+- Renaming never changes a frame's size.
 - The plugin remembers your choices. The client is remembered per Figma file, never carried from one file to another.
 
 ---
 
 ## Flatten & Merge
 
-Turns layers into a picture (PNG).
+Merges the layers you select into one picture, named `[Print]`.
 
 1. Select one or more layers.
-2. Choose the quality: **1×** is normal size, **2×** is sharper, up to **4×**.
-3. Press one of the buttons:
-   - **Flatten each** — one image for every layer.
-   - **Merge into one** — a single image of everything you selected.
+2. Press **Merge into one**.
+
+That's it. There is nothing to set.
 
 Good to know:
 
-- **Your original layers are kept.** The image appears to the right of your artboard.
-- If you choose **Replace originals**, the plugin asks you to confirm first. The image is made before anything is removed, so if something goes wrong your layers stay as they were.
-- Shadows and other effects are included in the image.
-- Figma cannot hold one image larger than 4096 px on a side. For anything bigger, such as a long page, the plugin makes several pieces that fit together exactly and groups them. Nothing is shrunk or blurred.
-- Hidden and empty layers are skipped. The plugin tells you which ones.
+- **Your layers are never changed or removed.** The picture appears to the right of your artboard and is selected, ready to use.
+- The picture is the same size as your layers (1×).
+- Shadows and other effects are included.
+- Figma cannot hold one image larger than 4096 px on a side. For anything bigger, such as a long page, the plugin makes several pieces that fit together exactly and puts them in one group named `[Print]`. Nothing is shrunk or blurred.
+- Hidden and empty layers are left out. The plugin tells you which ones.
 - To undo, press ⌘Z or Ctrl+Z.
 
 ---
@@ -125,7 +127,7 @@ What it does **not** do: it does not look inside Google Drive, it cannot tell wh
 Click the **gear** in the top right corner of the Home screen.
 
 - **Updates** — shows your version and lets you check for a new one.
-- **Reset my settings** — puts the Layer Renamer and Flatten options back to how they were when you first installed. It asks before doing it.
+- **Reset my settings** — puts the Layer Renamer choices back to how they were when you first installed. It asks before doing it.
 
 ---
 
@@ -151,8 +153,8 @@ Good to know:
 
 ## Privacy and safety
 
-- The plugin only changes your file when you press a button such as Apply or Flatten, and every change can be undone.
-- Your original layers are never deleted unless you choose **Replace originals** and confirm.
+- The plugin only changes your file when you press a button such as Rename or Merge into one, and every change can be undone.
+- The plugin never deletes your layers.
 - The plugin goes online for one thing only: checking for and downloading its own updates from GitHub, and only when you press the button. Nothing about your designs is sent anywhere.
 - **Update now** installs whatever is on the plugin's GitHub page. Only people you trust should be able to change that page, and the GitHub account should have two-step sign-in turned on.
 
@@ -202,6 +204,6 @@ After a few minutes, everyone who presses **Check for updates** sees the new ver
 
 **Checks**
 
-- `npm test` runs 62 automatic checks of the renaming rules, flattening, Drive links and updating.
+- `npm test` runs 59 automatic checks of the renaming rules, merging, Drive links and updating.
 - `python3 test/e2e.py` clicks through every screen in a pretend Figma (needs Playwright).
 - These run outside Figma, so also try a new version in Figma itself on a spare file before sharing it.

@@ -198,10 +198,6 @@ i[data-icon] { display: inline-flex; width: 16px; height: 16px; flex: none; }
 .check input:focus-visible + .box, .radio input:focus-visible + .ring { outline: 2px solid var(--accent); outline-offset: 2px; }
 .radio small { display: block; color: var(--muted); font-size: 11px; line-height: 1.35; margin-top: 1px; }
 .radio b { font-weight: 500; }
-.sub { display: flex; flex-direction: column; gap: 8px; margin: -1px 0 0 24px; padding: 9px 10px; border-radius: 8px; background: var(--sunken); }
-.opt { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.opt-stack { display: flex; flex-direction: column; gap: 8px; padding-top: 2px; }
-.opt-label { color: var(--muted); white-space: nowrap; }
 .seg { display: inline-flex; padding: 2px; gap: 2px; border-radius: 7px; background: var(--sunken); border: 1px solid var(--border); min-width: 0; }
 .seg button { height: 22px; min-width: 34px; padding: 0 8px; border: 0; border-radius: 5px; background: transparent; color: var(--muted); cursor: pointer; white-space: nowrap; font-size: 11.5px; }
 .seg button:hover { color: var(--text); }
@@ -232,9 +228,6 @@ html.figma-dark .btn.danger { background: #D9473E; border-color: #D9473E; }
 .btn.busy { pointer-events: none; }
 .btn.busy::before { content: ""; width: 12px; height: 12px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; animation: spin .7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
-.actions.confirm { flex-direction: column; gap: 8px; }
-.actions.confirm p { line-height: 1.4; }
-.confirm-btns { display: flex; gap: 8px; }
 
 /* ── stats ── */
 .stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; flex: none; }
@@ -306,7 +299,6 @@ html.figma-dark .toast.error { background: #D9473E; color: #fff; }
   .frow { grid-template-columns: minmax(0, 1fr); }
   .frow-hint { margin-left: 0; }
   .frow .seg { display: flex; justify-self: stretch; }
-  .opt { flex-direction: column; align-items: stretch; gap: 6px; }
   .seg { display: flex; }
   .seg button { flex: 1; padding: 0 4px; min-width: 0; }
   .hint { display: none; }

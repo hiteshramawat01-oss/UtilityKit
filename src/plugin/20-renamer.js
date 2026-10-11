@@ -1,6 +1,6 @@
 /*
- * Layer Renamer — reads the selection and the current page, previews, applies
- * names, and optionally resizes frames to the standard Desktop / Mobile width.
+ * Layer Renamer — reads the selection and the current page, works the names
+ * out, and applies them. It only ever changes layer names.
  */
 UK.renamer = (function () {
   var N = UK.naming;
@@ -21,63 +21,10 @@ UK.renamer = (function () {
     };
   }
 
-  /** What resizing would do to one node, without doing it. */
-  function resizePlan(node, settings) {
-    var target = settings.resizeTarget, mode = settings.resizeMode;
-    if (N.RESIZABLE.indexOf(node.type) === -1) return { action: 'skip', reason: 'Only frames are resized' };
-    var w = node.width, h = node.height;
-    if (typeof w !== 'number' || typeof h !== 'number' || !(w > 0) || !(h > 0)) {
-      return { action: 'skip', reason: 'This layer has no size to change' };
-    }
-    if (typeof node.resize !== 'function' && typeof node.rescale !== 'function' && typeof node.resizeWithoutConstraints !== 'function') {
-      return { action: 'skip', reason: 'This layer type can’t be resized' };
-    }
-    if (Math.abs(w - target) < 0.01) return { action: 'none' };
-    var toHeight = mode === 'width' ? h : h * (target / w);
-    return { action: 'resize', toWidth: target, toHeight: toHeight, fromWidth: w, fromHeight: h };
-  }
-
-  function resizeNode(node, settings) {
-    var rp = resizePlan(node, settings);
-    if (rp.action !== 'resize') return rp;
-    if (settings.resizeMode === 'scale' && typeof node.rescale === 'function') {
-      node.rescale(rp.toWidth / node.width);
-    } else if (typeof node.resize === 'function') {
-      node.resize(rp.toWidth, Math.max(0.01, rp.toHeight));
-    } else {
-      node.resizeWithoutConstraints(rp.toWidth, Math.max(0.01, rp.toHeight));
-    }
-    return rp;
-  }
-
-  function round(n) { return Math.round(n * 100) / 100; }
-
   function buildPreview(rawSettings, nodes, limit) {
-    var byId = {}, items = [];
-    for (var i = 0; i < nodes.length; i++) {
-      var item = readItem(nodes[i]);
-      items.push(item);
-      byId[item.id] = nodes[i];
-    }
+    var items = [];
+    for (var i = 0; i < nodes.length; i++) items.push(readItem(nodes[i]));
     var p = N.plan(rawSettings, items, { pageName: figma.currentPage.name });
-    var settings = p.settings;
-    var resizing = settings.mode === 'web' && settings.resize;
-
-    var willResize = 0, resizeSkipped = 0;
-    if (resizing && !p.error) {
-      for (var j = 0; j < p.rows.length; j++) {
-        var row = p.rows[j];
-        var rp = resizePlan(byId[row.id], settings);
-        if (rp.action === 'resize') {
-          willResize++;
-          row.resize = round(rp.fromWidth) + ' × ' + round(rp.fromHeight) + ' → ' + round(rp.toWidth) + ' × ' + round(rp.toHeight);
-        } else if (rp.action === 'skip') {
-          resizeSkipped++;
-          row.resizeNote = rp.reason;
-        }
-      }
-    }
-
     var max = typeof limit === 'number' ? limit : MAX_ROWS_TO_UI;
     return {
       error: p.error,
@@ -86,18 +33,13 @@ UK.renamer = (function () {
       pageType: p.pageType,
       autoPageType: p.autoPageType,
       summary: p.summary,
-      counts: {
-        selected: p.counts.selected,
-        willRename: p.counts.willRename,
-        unchanged: p.counts.unchanged,
-        willResize: willResize,
-        resizeSkipped: resizeSkipped
-      },
-      resize: resizing,
-      resizeTarget: settings.resizeTarget,
+      versionsAuto: p.versionsAuto,
+      versionList: p.versionList.slice(0, 12),
+      versionCount: p.versionList.length,
+      counts: p.counts,
       rows: p.rows.slice(0, max),
       hiddenRows: Math.max(0, p.rows.length - max),
-      // Every id + proposed name, so Apply can prove nothing moved under the preview.
+      // Every id + proposed name, so apply() can prove nothing moved underneath it.
       expected: p.rows.map(function (r) { return { id: r.id, proposed: r.proposed }; })
     };
   }
@@ -108,9 +50,9 @@ UK.renamer = (function () {
   }
 
   /**
-   * Applies exactly what the designer saw. If any layer was deleted, renamed,
-   * moved or resized since the preview (so its name would now come out
-   * differently), nothing is changed and a fresh preview is returned.
+   * Applies exactly the names in `expected`. If any layer was deleted, renamed,
+   * moved or resized in between (so its name would now come out differently),
+   * nothing is changed and a fresh preview is returned.
    */
   async function apply(payload) {
     payload = payload || {};
@@ -124,7 +66,7 @@ UK.renamer = (function () {
       if (!node || node.removed) missing++;
       else { nodes.push(node); byId[node.id] = node; }
     }
-    if (!nodes.length) throw UK.userError('Those layers no longer exist. Select layers and preview again.');
+    if (!nodes.length) throw UK.userError('Those layers no longer exist. Select layers and try again.');
 
     var fresh = buildPreview(settings, nodes, MAX_ROWS_TO_UI);
     if (fresh.error) throw UK.userError(fresh.error);
@@ -137,56 +79,34 @@ UK.renamer = (function () {
     }
     if (stale) return { stale: true, preview: fresh };
 
-    var renamed = 0, unchanged = 0, resized = 0;
-    var failed = [], resizeSkipped = [];
-    var resizing = settings.mode === 'web' && settings.resize;
-
+    var renamed = 0, unchanged = 0, failed = [];
     for (i = 0; i < fresh.expected.length; i++) {
       var n = byId[fresh.expected[i].id];
       var proposed = fresh.expected[i].proposed;
       var before = n.name;
-      if (proposed !== before) {
+      if (proposed === before) { unchanged++; continue; }
+      try {
+        n.name = proposed;
+        renamed++;
         try {
-          n.name = proposed;
-          renamed++;
-          try {
-            if (!n.getPluginData(PD_ORIGINAL)) n.setPluginData(PD_ORIGINAL, before);
-          } catch (e1) { /* naming worked; remembering the original is optional */ }
-        } catch (e2) {
-          failed.push({ name: before, reason: UK.describeError(e2) });
-        }
-      } else {
-        unchanged++;
-      }
-      if (resizing) {
-        try {
-          var rp = resizeNode(n, settings);
-          if (rp.action === 'resize') resized++;
-          else if (rp.action === 'skip') resizeSkipped.push({ name: n.name, reason: rp.reason });
-        } catch (e3) {
-          resizeSkipped.push({ name: n.name, reason: UK.describeError(e3) });
-        }
+          if (!n.getPluginData(PD_ORIGINAL)) n.setPluginData(PD_ORIGINAL, before);
+        } catch (e1) { /* naming worked; remembering the original is optional */ }
+      } catch (e2) {
+        failed.push({ name: before, reason: UK.describeError(e2) });
       }
     }
 
     try { figma.commitUndo(); } catch (e4) { /* older runtimes */ }
 
-    var summary = renamed === 0 && resized === 0
-      ? 'Nothing needed changing'
-      : 'Renamed ' + UK.plural(renamed, 'layer') + (resizing ? ', resized ' + resized : '');
+    var summary = renamed === 0 ? 'Nothing needed changing' : 'Renamed ' + UK.plural(renamed, 'frame');
     UK.notify(failed.length ? summary + ' — ' + failed.length + ' failed' : summary, failed.length > 0 && renamed === 0);
 
     return {
       stale: false,
       renamed: renamed,
       unchanged: unchanged,
-      resized: resized,
-      resizeRequested: resizing,
-      resizeTarget: settings.resizeTarget,
       failed: failed.slice(0, 20),
-      failedCount: failed.length,
-      resizeSkipped: resizeSkipped.slice(0, 20),
-      resizeSkippedCount: resizeSkipped.length
+      failedCount: failed.length
     };
   }
 
@@ -217,5 +137,5 @@ UK.renamer = (function () {
     return { compact: client, example: client ? pageType + '_' + client + '_V1' : '' };
   }
 
-  return { preview: preview, apply: apply, run: run, detectClient: detectClient, clientExample: clientExample, resizePlan: resizePlan, buildPreview: buildPreview };
+  return { preview: preview, apply: apply, run: run, detectClient: detectClient, clientExample: clientExample, buildPreview: buildPreview };
 })();

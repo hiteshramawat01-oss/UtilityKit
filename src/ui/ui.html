@@ -37,7 +37,7 @@
         </button>
         <button class="tool" type="button" data-go="flatten">
           <span class="tool-icon"><i data-icon="layers"></i></span>
-          <span class="tool-text"><span class="tool-name">Flatten &amp; Merge</span><span class="tool-desc">Turn selected layers into a single image.</span></span>
+          <span class="tool-text"><span class="tool-name">Flatten &amp; Merge</span><span class="tool-desc">Merge selected layers into one image.</span></span>
           <i data-icon="chevron" class="tool-go"></i>
         </button>
         <button class="tool" type="button" data-go="drive">
@@ -109,48 +109,12 @@
             <label class="frow"><span class="frow-label">Variation</span>
               <input class="input" id="rnVariation" type="text" list="rnVariations" placeholder="Optional, e.g. A" maxlength="40" autocomplete="off" spellcheck="false"></label>
           </div>
+
+          <label class="frow"><span class="frow-label">Version</span>
+            <input class="input" id="rnVersions" type="text" placeholder="e.g. 1 or 1, 2, 3" maxlength="200" autocomplete="off" spellcheck="false"></label>
+          <p class="frow-hint">One for every frame, or one each from left to right. For example <b>1</b>, <b>1r2</b>, or <b>1, 2, 3</b>.</p>
         </div>
 
-        <div class="card">
-          <div class="card-head"><h2>Version</h2></div>
-          <div class="frow"><span class="frow-label">Version</span>
-            <div class="frow-pair">
-              <select class="select" id="rnVersionMode" aria-label="Version">
-                <option value="auto">Automatic</option>
-                <option value="next">Next version (+1)</option>
-                <option value="set">Start at…</option>
-              </select>
-              <input class="input num" id="rnVersionValue" type="number" min="1" max="999" aria-label="Version number" hidden>
-            </div>
-          </div>
-          <div class="frow"><span class="frow-label">Revision</span>
-            <div class="frow-pair">
-              <select class="select" id="rnRevisionMode" aria-label="Revision">
-                <option value="keep">Keep as it is</option>
-                <option value="next">Next revision (+1)</option>
-                <option value="none">No revision</option>
-                <option value="set">Set to…</option>
-              </select>
-              <input class="input num" id="rnRevisionValue" type="number" min="1" max="999" aria-label="Revision number" hidden>
-            </div>
-          </div>
-          <p class="frow-hint" id="rnVersionHelp"></p>
-        </div>
-
-        <details class="card details" id="rnAdvanced">
-          <summary><h2>Resize</h2><i data-icon="down" class="details-arrow"></i></summary>
-          <div class="details-body">
-            <label class="check"><input type="checkbox" id="rnResize"><span class="box"></span><span>Resize frames to a standard width</span></label>
-            <div class="sub" id="rnResizeModes" hidden>
-              <div class="seg" id="rnResizeTarget" role="radiogroup" aria-label="Width">
-                <button type="button" data-value="1600">Desktop 1600</button>
-                <button type="button" data-value="320">Mobile 320</button>
-              </div>
-              <label class="radio"><input type="radio" name="rnResizeMode" value="scale"><span class="ring"></span><span><b>Scale proportionally</b><small>Keeps the shape; everything inside scales too.</small></span></label>
-              <label class="radio"><input type="radio" name="rnResizeMode" value="width"><span class="ring"></span><span><b>Width only</b><small>Height stays as it is.</small></span></label>
-            </div>
-          </div>
-        </details>
         <div id="rnResult"></div>
       </div>
 
@@ -159,6 +123,7 @@
           <span class="example-label">Live preview</span>
           <span class="example-name" id="rnExampleName">—</span>
           <span class="example-from" id="rnExampleFrom"></span>
+          <span class="example-from" id="rnExampleVersions" hidden></span>
         </div>
         <button class="btn primary" type="button" id="rnRenameBtn">Rename</button>
       </div>
@@ -168,35 +133,10 @@
     <section class="screen" data-screen="flatten" hidden>
       <div class="scroll">
         <div class="card" id="flSummary"></div>
-        <div class="card">
-          <div class="card-head"><h2>Options</h2></div>
-          <div class="opt">
-            <span class="opt-label">Resolution</span>
-            <div class="seg" id="flScale" role="radiogroup" aria-label="Resolution">
-              <button type="button" data-value="1">1×</button>
-              <button type="button" data-value="2">2×</button>
-              <button type="button" data-value="3">3×</button>
-              <button type="button" data-value="4">4×</button>
-            </div>
-          </div>
-          <div class="opt-stack">
-            <span class="opt-label">Original layers</span>
-            <label class="radio"><input type="radio" name="flOriginals" value="keep" checked><span class="ring"></span><span><b>Keep originals</b><small>The image is placed beside them.</small></span></label>
-            <label class="radio"><input type="radio" name="flOriginals" value="replace"><span class="ring"></span><span><b>Replace originals</b><small>Removed once the image exists. Asks first.</small></span></label>
-          </div>
-        </div>
         <div id="flBanner"></div>
       </div>
       <div class="actions" id="flActions">
-        <button class="btn grow" type="button" id="flEach">Flatten each</button>
         <button class="btn primary grow" type="button" id="flMerge">Merge into one</button>
-      </div>
-      <div class="actions confirm" id="flConfirm" hidden>
-        <p id="flConfirmText"></p>
-        <div class="confirm-btns">
-          <button class="btn grow" type="button" id="flCancel">Cancel</button>
-          <button class="btn danger grow" type="button" id="flConfirmBtn">Replace</button>
-        </div>
       </div>
     </section>
 
@@ -241,7 +181,7 @@
 
         <div class="card">
           <div class="card-head"><h2>Saved settings</h2></div>
-          <p class="card-text">Your naming format, formatting options and flatten resolution are remembered on this computer. Client, Design Phase and Version are also remembered inside each file when you apply a rename.</p>
+          <p class="card-text">Your Layer Renamer choices are remembered on this computer. The client is remembered inside each file.</p>
           <button class="btn small" type="button" id="stReset">Reset my settings</button>
           <div class="note warn" id="stResetConfirm" hidden>
             <div class="note-body">

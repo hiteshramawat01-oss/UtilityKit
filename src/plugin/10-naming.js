@@ -17,7 +17,6 @@ UK.naming = (function () {
   var DEVICES = [{ width: 1600, tag: 'Desktop' }, { width: 320, tag: 'Mobile' }];
   // Short size codes the guideline allows for video deliverables.
   var VIDEO_SIZES = { '1080x1920': 'V', '1920x1080': 'H', '1080x1350': 'P', '1080x1080': 'S' };
-  var RESIZABLE = ['FRAME', 'COMPONENT', 'INSTANCE', 'GROUP', 'SECTION'];
   var SEP = '_';
 
   function defaults() {
@@ -30,13 +29,7 @@ UK.naming = (function () {
       task: '',
       variation: '',
       includeSize: true,
-      versionMode: 'auto',      // 'auto' keep existing + number new | 'next' +1 | 'set' start at versionValue
-      versionValue: 1,
-      revisionMode: 'keep',     // 'keep' | 'next' +1 | 'none' | 'set' revisionValue
-      revisionValue: 1,
-      resize: false,
-      resizeTarget: 1600,       // 1600 (Desktop) | 320 (Mobile)
-      resizeMode: 'scale'       // 'scale' keep aspect ratio | 'width' width only
+      versions: ''              // '' = automatic; otherwise what the designer typed: "2", "1r1", "r2", "1, 2, 3"
     };
   }
 
@@ -63,13 +56,7 @@ UK.naming = (function () {
     d.task = text(raw.task);
     d.variation = text(raw.variation);
     if (typeof raw.includeSize === 'boolean') d.includeSize = raw.includeSize;
-    d.versionMode = oneOf(raw.versionMode, ['auto', 'next', 'set'], d.versionMode);
-    d.versionValue = whole(raw.versionValue, 1, 999, d.versionValue);
-    d.revisionMode = oneOf(raw.revisionMode, ['keep', 'next', 'none', 'set'], d.revisionMode);
-    d.revisionValue = whole(raw.revisionValue, 0, 999, d.revisionValue);
-    if (typeof raw.resize === 'boolean') d.resize = raw.resize;
-    d.resizeTarget = oneOf(Number(raw.resizeTarget), [1600, 320], d.resizeTarget);
-    d.resizeMode = oneOf(raw.resizeMode, ['scale', 'width'], d.resizeMode);
+    d.versions = text(raw.versions);
     return d;
   }
 
@@ -83,10 +70,7 @@ UK.naming = (function () {
     s.client = d.client;
     s.pageType = d.pageType;
     s.variation = d.variation;
-    s.versionMode = d.versionMode;
-    s.versionValue = d.versionValue;
-    s.revisionMode = d.revisionMode;
-    s.revisionValue = d.revisionValue;
+    s.versions = d.versions;
     return s;
   }
 
@@ -188,8 +172,47 @@ UK.naming = (function () {
     return best;
   }
 
+  /** "V1, V1, V1" -> "V1"; otherwise the list as typed-able text. */
+  function collapseVersions(list) {
+    if (!list.length) return '';
+    for (var i = 1; i < list.length; i++) {
+      if (list[i] !== list[0]) return list.join(', ');
+    }
+    return list[0];
+  }
+
   function versionText(v, r) {
     return 'V' + v + (r > 0 ? 'R' + r : '');
+  }
+
+  /**
+   * Reads what the designer typed in the Version box.
+   *   "2" / "v2"      -> version 2
+   *   "1r2" / "V1R2"  -> version 1, revision 2
+   *   "r2"            -> keep the frame's version, revision 2
+   *   "1, 2, 3"       -> one per frame, left to right
+   * Returns { entries: [{ v, r }] } (v or r is null when not given) or { error }.
+   */
+  function parseVersions(input) {
+    var raw = String(input === null || input === undefined ? '' : input).trim();
+    if (!raw) return { entries: [] };
+    var parts = raw.split(/[,;]/), entries = [];
+    for (var i = 0; i < parts.length; i++) {
+      var part = parts[i].replace(/\s+/g, '');
+      if (!part) {
+        if (i === parts.length - 1) continue;             // a trailing comma while typing
+        return { error: 'There is an empty version in the list. Use for example 1, 2, 3.' };
+      }
+      var m = /^(?:v?(\d{1,3}))?(?:r(\d{1,3}))?$/i.exec(part);
+      if (!m || (m[1] === undefined && m[2] === undefined)) {
+        return { error: '\u201c' + parts[i].trim().slice(0, 20) + '\u201d isn\u2019t a version. Use for example 1, 1r2 or r2.' };
+      }
+      var v = m[1] === undefined ? null : Number(m[1]);
+      var r = m[2] === undefined ? null : Number(m[2]);
+      if (v === 0) return { error: 'Versions start at 1.' };
+      entries.push({ v: v, r: r });
+    }
+    return { entries: entries };
   }
 
   /** '' when the settings can produce a name, otherwise what is missing. */
@@ -202,10 +225,6 @@ UK.naming = (function () {
     }
     if (!compact(settings.client)) return 'Add the client name.';
     return '';
-  }
-
-  function willResize(settings, item) {
-    return settings.mode === 'web' && settings.resize && RESIZABLE.indexOf(item.type) !== -1 && item.width > 0;
   }
 
   function smallestFree(used, from) {
@@ -257,8 +276,7 @@ UK.naming = (function () {
         var variation = compact(settings.variation);
         if (variation) after.push(variation);
       } else {
-        var width = willResize(settings, item) ? settings.resizeTarget : item.width;
-        device = deviceFor(width);
+        device = deviceFor(item.width);
         if (device === 'Desktop') summary.desktop++;
         else if (device === 'Mobile') summary.mobile++;
         else {
@@ -280,41 +298,48 @@ UK.naming = (function () {
       (groups[key] = groups[key] || []).push(row);
     }
 
-    if (!error) {
-      for (var g in groups) {
-        if (!Object.prototype.hasOwnProperty.call(groups, g)) continue;
-        var list = groups[g], used = {}, r, n;
-
-        if (settings.versionMode === 'set') {
-          for (n = 0; n < list.length; n++) list[n]._v = settings.versionValue + n;
-        } else {
-          // First the layers that already carry a version (kept, or moved up by one)…
-          for (n = 0; n < list.length; n++) {
-            r = list[n];
-            if (!r._existing) continue;
-            var want = r._existing.v + (settings.versionMode === 'next' ? 1 : 0);
-            if (!used[want]) { r._v = want; used[want] = true; }
-          }
-          // …then everything else takes the next free number, left to right.
-          for (n = 0; n < list.length; n++) {
-            r = list[n];
-            if (r._v) continue;
-            r._v = smallestFree(used, 1);
-            used[r._v] = true;
-          }
-        }
-
-        for (n = 0; n < list.length; n++) {
-          r = list[n];
-          var sameVersion = !!r._existing && r._existing.v === r._v;
-          var rev = sameVersion ? r._existing.r : 0;          // a revision belongs to its version
-          if (settings.revisionMode === 'set') rev = settings.revisionValue;
-          else if (settings.revisionMode === 'none') rev = 0;
-          else if (settings.revisionMode === 'next' && sameVersion) rev = rev + 1;
-          r.version = versionText(r._v, rev);
-          r.proposed = r._before.concat([r.version], r._after).join(SEP);
-        }
+    // 1. What each layer would get on its own: a layer that already has a version keeps
+    //    it (and its revision); the others take the next free number, left to right.
+    for (var g in groups) {
+      if (!Object.prototype.hasOwnProperty.call(groups, g)) continue;
+      var list = groups[g], used = {}, r, n;
+      for (n = 0; n < list.length; n++) {
+        r = list[n];
+        if (r._existing && !used[r._existing.v]) { r._v = r._existing.v; r._r = r._existing.r; used[r._v] = true; }
       }
+      for (n = 0; n < list.length; n++) {
+        r = list[n];
+        if (r._v) continue;
+        r._v = smallestFree(used, 1);
+        r._r = 0;
+        used[r._v] = true;
+      }
+    }
+    var autoList = [];
+    for (var a = 0; a < rows.length; a++) autoList.push(versionText(rows[a]._v, rows[a]._r));
+
+    // 2. What the designer typed in the Version box replaces that: one value for
+    //    every layer, or one value per layer in the same left-to-right order.
+    var typed = parseVersions(settings.versions);
+    var versionError = typed.error || '';
+    if (!versionError && typed.entries.length > 1 && rows.length && typed.entries.length !== rows.length) {
+      versionError = rows.length + (rows.length === 1 ? ' frame' : ' frames') + ' selected, ' + typed.entries.length + ' versions typed. Type one version, or one for each frame.';
+    }
+    if (!versionError && typed.entries.length) {
+      for (var t = 0; t < rows.length; t++) {
+        var entry = typed.entries.length === 1 ? typed.entries[0] : typed.entries[t];
+        if (entry.v !== null) { rows[t]._v = entry.v; rows[t]._r = entry.r === null ? 0 : entry.r; }
+        else rows[t]._r = entry.r;                        // "r2": keep the version, set the revision
+      }
+    }
+    if (!error && versionError) error = versionError;
+
+    var versionList = [];
+    for (var q = 0; q < rows.length; q++) {
+      var row3 = rows[q];
+      row3.version = versionText(row3._v, row3._r);
+      versionList.push(row3.version);
+      if (!error) row3.proposed = row3._before.concat([row3.version], row3._after).join(SEP);
     }
 
     var willRename = 0, unchanged = 0;
@@ -323,7 +348,7 @@ UK.naming = (function () {
       if (error) row2.proposed = row2.current;
       row2.changed = row2.proposed !== row2.current;
       if (row2.changed) willRename++; else unchanged++;
-      delete row2._before; delete row2._after; delete row2._existing; delete row2._v;
+      delete row2._before; delete row2._after; delete row2._existing; delete row2._v; delete row2._r;
     }
 
     return {
@@ -334,6 +359,8 @@ UK.naming = (function () {
       pageType: pageType,
       autoPageType: autoPageType,
       summary: summary,
+      versionsAuto: collapseVersions(autoList),     // what the Version box shows until the designer types
+      versionList: versionList,
       rows: rows,
       counts: { selected: rows.length, willRename: willRename, unchanged: unchanged }
     };
@@ -344,7 +371,6 @@ UK.naming = (function () {
     DELIVERABLES: DELIVERABLES,
     VARIATIONS: VARIATIONS,
     DEVICES: DEVICES,
-    RESIZABLE: RESIZABLE,
     defaults: defaults,
     normalize: normalize,
     persistable: persistable,
@@ -354,10 +380,10 @@ UK.naming = (function () {
     deviceFor: deviceFor,
     sizeFor: sizeFor,
     readVersion: readVersion,
+    parseVersions: parseVersions,
     clientIn: clientIn,
     clientFromNames: clientFromNames,
     validate: validate,
-    willResize: willResize,
     plan: plan
   };
 })();

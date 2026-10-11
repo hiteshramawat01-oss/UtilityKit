@@ -48,9 +48,9 @@ test('guideline: the sample file names come out exactly', async () => {
   // Web samples: page name on the Figma page, one frame that is not a standard device width
   for (const [page, settings, want] of [
     ['Homepage', { phase: 'Mockups', client: 'Estate Guys' }, 'Homepage_Mockups_EstateGuys_V1'],
-    ['Homepage', { phase: 'Wireframes', client: 'Atlanta Light Bulbs', revisionMode: 'set', revisionValue: 1 }, 'Homepage_Wireframes_AtlantaLightBulbs_V1R1'],
-    ['Product Page', { phase: 'Mockups', client: 'Trumpet and Horn', revisionMode: 'set', revisionValue: 1 }, 'ProductPage_Mockups_TrumpetAndHorn_V1R1'],
-    ['FAQ Page Edit', { phase: '', client: 'American Coil', revisionMode: 'set', revisionValue: 1 }, 'FAQPageEdit_AmericanCoil_V1R1'],
+    ['Homepage', { phase: 'Wireframes', client: 'Atlanta Light Bulbs', versions: 'r1' }, 'Homepage_Wireframes_AtlantaLightBulbs_V1R1'],
+    ['Product Page', { phase: 'Mockups', client: 'Trumpet and Horn', versions: 'r1' }, 'ProductPage_Mockups_TrumpetAndHorn_V1R1'],
+    ['FAQ Page Edit', { phase: '', client: 'American Coil', versions: 'r1' }, 'FAQPageEdit_AmericanCoil_V1R1'],
     ['Brand Guide', { phase: '', client: 'UCA Lingerie' }, 'BrandGuide_UCALingerie_V1']
   ]) {
     const { env, call, frame } = scene(page);
@@ -59,10 +59,10 @@ test('guideline: the sample file names come out exactly', async () => {
   }
   // Marketing samples
   for (const [w, h, settings, want] of [
-    [800, 2000, { includeSize: false, deliverable: 'Infographic', task: 'Guide for winter fashion', client: 'Magnolia Boutique', revisionMode: 'set', revisionValue: 3 }, 'Infographic_GuideForWinterFashion_MagnoliaBoutique_V1R3'],
-    [1080, 1920, { includeSize: false, deliverable: 'IG Reel', task: 'Summer tips', client: 'Megan Mae Miami', versionMode: 'set', versionValue: 2 }, 'IGReel_SummerTips_MeganMaeMiami_V2'],
+    [800, 2000, { includeSize: false, deliverable: 'Infographic', task: 'Guide for winter fashion', client: 'Magnolia Boutique', versions: 'r3' }, 'Infographic_GuideForWinterFashion_MagnoliaBoutique_V1R3'],
+    [1080, 1920, { includeSize: false, deliverable: 'IG Reel', task: 'Summer tips', client: 'Megan Mae Miami', versions: '2' }, 'IGReel_SummerTips_MeganMaeMiami_V2'],
     [1200, 300, { deliverable: 'Google Responsive Ads', task: 'Black Friday Sale', client: 'West Point Home' }, '1200x300_GoogleResponsiveAds_BlackFridaySale_WestPointHome_V1'],
-    [1080, 1920, { deliverable: 'Meta Video Ads', task: 'Prime Day Sale', client: 'House of Savage', revisionMode: 'set', revisionValue: 1 }, 'V_MetaVideoAds_PrimeDaySale_HouseOfSavage_V1R1']
+    [1080, 1920, { deliverable: 'Meta Video Ads', task: 'Prime Day Sale', client: 'House of Savage', versions: 'r1' }, 'V_MetaVideoAds_PrimeDaySale_HouseOfSavage_V1R1']
   ]) {
     const { env, call, frame } = scene('Ads');
     env.select([frame('Frame 1', 0, w, h)]);
@@ -172,22 +172,58 @@ test('automatic versions: frames keep the version they have; only new frames get
   assert.deepEqual(names(await s2.call('rename.preview', { settings: web() })), ['Homepage_Desktop_Mockups_Acme_V1R2', 'Homepage_Desktop_Mockups_Acme_V2']);
 });
 
-test('version and revision choices', async () => {
-  const { env, call, frame } = scene();
+test('the Version box: one value for every frame, or one each, left to right', async () => {
+  const { UK, env, call, frame } = scene();
   const a = frame('Homepage_Desktop_Mockups_Acme_V1', 0, 1600);
   const b = frame('Homepage_Desktop_Mockups_Acme_V2R1', 2000, 1600);
-  const n = frame('Frame 3', 4000, 1600);                       // never named
-  env.select([a, b, n]);
-  const v = async (over) => (await call('rename.preview', { settings: web(over) })).data.rows.map((r) => r.version);
+  const n = frame('Frame 3', 4000, 320);                        // never named
+  env.select([n, b, a]);
+  const data = async (versions) => (await call('rename.preview', { settings: web({ versions }) })).data;
+  const v = async (versions) => (await data(versions)).versionList;
 
-  assert.deepEqual(await v({}), ['V1', 'V2R1', 'V3'], 'automatic + keep');
-  assert.deepEqual(await v({ revisionMode: 'next' }), ['V1R1', 'V2R2', 'V3'], 'next revision; a brand-new frame has nothing to revise');
-  assert.deepEqual(await v({ revisionMode: 'none' }), ['V1', 'V2', 'V3']);
-  assert.deepEqual(await v({ revisionMode: 'set', revisionValue: 4 }), ['V1R4', 'V2R4', 'V3R4']);
-  assert.deepEqual(await v({ versionMode: 'next', revisionMode: 'none' }), ['V2', 'V3', 'V1'], 'next version drops the revision; the new frame takes the free number');
-  assert.deepEqual(await v({ versionMode: 'next', revisionMode: 'keep' }), ['V2', 'V3', 'V1'], 'a revision never carries over to a new version');
-  assert.deepEqual(await v({ versionMode: 'set', versionValue: 5 }), ['V5', 'V6', 'V7'], 'start at: renumbers left to right');
-  assert.deepEqual(await v({ versionMode: 'set', versionValue: 2, revisionMode: 'keep' }), ['V2', 'V3', 'V4'], 'changed versions lose their revision');
+  // nothing typed: what the frames have, and the next free number for new ones
+  let d = await data('');
+  assert.deepEqual(d.versionList, ['V1', 'V2R1', 'V1']);
+  assert.equal(d.versionsAuto, 'V1, V2R1, V1', 'this is what the box shows');
+  assert.equal(d.error, '');
+
+  // one value applies to every frame
+  assert.deepEqual(await v('2'), ['V2', 'V2', 'V2']);
+  assert.deepEqual(await v('v3'), ['V3', 'V3', 'V3']);
+  assert.deepEqual(await v('1r2'), ['V1R2', 'V1R2', 'V1R2']);
+  assert.deepEqual(await v(' V 1 R 2 '), ['V1R2', 'V1R2', 'V1R2']);
+  assert.deepEqual(await v('r3'), ['V1R3', 'V2R3', 'V1R3'], 'r alone keeps each frame\'s version');
+
+  // a list is handed out left to right
+  assert.deepEqual(await v('v1,2,3'), ['V1', 'V2', 'V3']);
+  assert.deepEqual(await v('V1,V1r1,R2'), ['V1', 'V1R1', 'V1R2']);
+  assert.deepEqual(await v('1; 2; 3'), ['V1', 'V2', 'V3']);
+  assert.deepEqual(await v('1, 2, 3,'), ['V1', 'V2', 'V3'], 'a trailing comma while typing is fine');
+  d = await data('1, 2, 3');
+  assert.deepEqual(d.rows.map((r) => r.proposed), ['Homepage_Desktop_Mockups_Acme_V1', 'Homepage_Desktop_Mockups_Acme_V2', 'Homepage_Mobile_Mockups_Acme_V3']);
+
+  // mistakes block the rename and say why
+  for (const [typed, message] of [
+    ['1, 2', /3 frames selected, 2 versions typed/],
+    ['1, 2, 3, 4', /3 frames selected, 4 versions typed/],
+    ['final', /“final” isn’t a version/],
+    ['1.2', /isn’t a version/],
+    ['1,,3', /empty version in the list/],
+    ['0', /Versions start at 1/]
+  ]) {
+    d = await data(typed);
+    assert.match(d.error, message, typed);
+    assert.equal(d.counts.willRename, 0, typed);
+    const res = await call('rename.run', { settings: web({ versions: typed }) });
+    assert.equal(res.ok, false, typed);
+  }
+  assert.equal(n.name, 'Frame 3');
+
+  // all the same collapses to one value in the box
+  const s2 = scene();
+  s2.env.select([s2.frame('x', 0, 1600), s2.frame('y', 2000, 320)]);
+  assert.equal((await s2.call('rename.preview', { settings: web() })).data.versionsAuto, 'V1');
+  assert.equal(JSON.stringify(UK.naming.parseVersions('')), '{"entries":[]}');
 });
 
 test('reading a version out of an existing name', () => {
@@ -221,7 +257,7 @@ test('marketing: size can be left out, variation goes last, video sizes use the 
   const { UK, env, call, frame } = scene('Ads');
   env.select([frame('a', 0, 1080, 1080)]);
   assert.deepEqual(names(await call('rename.preview', { settings: mkt({ includeSize: false }) })), ['MetaAds_BlackFriday_Acme_V1']);
-  assert.deepEqual(names(await call('rename.preview', { settings: mkt({ variation: 'a', revisionMode: 'set', revisionValue: 2 }) })), ['1080x1080_MetaAds_BlackFriday_Acme_V1R2_A']);
+  assert.deepEqual(names(await call('rename.preview', { settings: mkt({ variation: 'a', versions: 'r2' }) })), ['1080x1080_MetaAds_BlackFriday_Acme_V1R2_A']);
   assert.deepEqual(names(await call('rename.preview', { settings: mkt({ task: 'The 5 tips for a sale' }) })), ['1080x1080_MetaAds_5TipsForSale_Acme_V1']);
 
   const size = UK.naming.sizeFor;
@@ -266,7 +302,7 @@ test('preview changes nothing; apply renames, counts, and is one undo step', asy
   const a = frame('Frame 1', 0, 1600), b = frame('Homepage_Mobile_Mockups_Acme_V1', 2000, 320);
   env.select([a, b]);
   const pre = await call('rename.preview', { settings: web() });
-  assert.deepEqual(pre.data.counts, { selected: 2, willRename: 1, unchanged: 1, willResize: 0, resizeSkipped: 0 });
+  assert.deepEqual(pre.data.counts, { selected: 2, willRename: 1, unchanged: 1 });
   assert.equal(a.name, 'Frame 1');
 
   const res = await call('rename.apply', { settings: web(), expected: pre.data.expected });
@@ -316,46 +352,25 @@ test('a layer that cannot be renamed is reported and the rest still rename', asy
   assert.equal(bad.name, 'locked thing');
 });
 
-// ── resize ───────────────────────────────────────────────────────────────────
+// ── never resizes ────────────────────────────────────────────────────────────
 
-test('resize: Desktop 1600 or Mobile 320, frames only, and the device tag follows the new width', async () => {
+test('renaming never changes a frame\'s size, whatever an older version saved', async () => {
   const { env, call, frame } = scene();
   const a = frame('a', 0, 1440, 900);
-  const label = env.add('TEXT', { name: 'label', x: 3000, width: 200, height: 20 });
-  const stuck = frame('c', 5000, 800, 600, { flags: { failResize: true } });
-  env.select([a, label, stuck]);
-
-  let settings = web({ resize: true, resizeTarget: 1600, resizeMode: 'scale' });
-  let pre = await call('rename.preview', { settings });
-  assert.equal(pre.data.resize, true);
-  assert.deepEqual([pre.data.counts.willResize, pre.data.counts.resizeSkipped], [2, 1]);
-  assert.equal(pre.data.rows[0].proposed, 'Homepage_Desktop_Mockups_Acme_V1', 'tagged for the width it will have');
-  assert.equal(pre.data.rows[0].resize, '1440 × 900 → 1600 × 1000');
-  assert.equal(pre.data.rows[1].resizeNote, 'Only frames are resized');
-  let res = await call('rename.apply', { settings, expected: pre.data.expected });
-  assert.deepEqual([a.width, a.height], [1600, 1000]);
-  assert.deepEqual([label.width, label.height], [200, 20], 'a text layer is left alone');
-  assert.equal(res.data.resized, 1);
-  assert.equal(res.data.resizeSkippedCount, 2);
-  assert.match(res.data.resizeSkipped.map((s) => s.reason).join(' | '), /Only frames.*inside an instance/);
-  assert.equal(stuck.name, 'Homepage_Desktop_Mockups_Acme_V2', 'rename still happens when resize fails');
-
-  const m = frame('m', 8000, 375, 800);
-  env.select([m]);
-  settings = web({ resize: true, resizeTarget: 320, resizeMode: 'width' });
-  pre = await call('rename.preview', { settings });
-  assert.equal(pre.data.rows[0].proposed, 'Homepage_Mobile_Mockups_Acme_V1');
-  res = await call('rename.apply', { settings, expected: pre.data.expected });
-  assert.deepEqual([m.width, m.height], [320, 800]);
-  assert.equal(res.data.resizeTarget, 320);
-
-  // never in marketing
-  const ad = frame('ad', 9000, 1080, 1080);
-  env.select([ad]);
-  pre = await call('rename.preview', { settings: mkt({ resize: true }) });
-  assert.equal(pre.data.resize, false);
-  await call('rename.apply', { settings: mkt({ resize: true }), expected: pre.data.expected });
-  assert.equal(ad.width, 1080);
+  const m = frame('m', 3000, 375, 800);
+  env.select([a, m]);
+  const settings = web({ resize: true, resizeTarget: 1600, resizeMode: 'scale' });    // what v1.5 could save
+  const pre = await call('rename.preview', { settings });
+  assert.equal(pre.data.resize, undefined);
+  assert.equal(pre.data.counts.willResize, undefined);
+  assert.deepEqual(pre.data.rows.map((r) => r.proposed), ['Homepage_Mockups_Acme_V1', 'Homepage_Mockups_Acme_V2'], 'tagged by the width it has');
+  const res = await call('rename.run', { settings });
+  assert.equal(res.data.renamed, 2);
+  assert.equal(res.data.resized, undefined);
+  assert.deepEqual([a.width, a.height, m.width, m.height], [1440, 900, 375, 800]);
+  const saved = (await call('init')).data.settings.renamer;
+  assert.equal('resize' in saved, false);
+  assert.equal('resizeTarget' in saved, false);
 });
 
 // ── saved settings ───────────────────────────────────────────────────────────
@@ -363,12 +378,12 @@ test('resize: Desktop 1600 or Mobile 320, frames only, and the device tag follow
 test('old or broken saved settings are repaired', () => {
   const { UK } = load();
   const N = UK.naming;
-  const old = N.normalize({ order: ['client', 'page'], separator: 'pipe', client: 42, phase: 'design', version: '3', capitalize: true, resizeTarget: 1440, versionValue: -4, mode: 'print' });
+  const old = N.normalize({ order: ['client', 'page'], separator: 'pipe', client: 42, phase: 'design', version: '3', capitalize: true, resizeTarget: 1440, versions: 7, mode: 'print' });
   assert.equal(old.client, '42');
   assert.equal(old.phase, '');
   assert.equal(old.mode, 'web');
-  assert.equal(old.resizeTarget, 1600);
-  assert.equal(old.versionValue, 1);
+  assert.equal('resizeTarget' in old, false);
+  assert.equal(old.versions, '7');
   assert.equal(JSON.stringify(N.normalize(null)), JSON.stringify(N.defaults()));
 });
 
@@ -380,13 +395,13 @@ test('settings: saved per designer; one-off choices and the client are not carri
   assert.equal(init.data.settings.renamer.mode, 'web');
   assert.deepEqual(init.data.naming.phases, ['Wireframes', 'Mockups']);
 
-  await call('settings.save', { renamer: web({ client: 'Typed In Another File', mode: 'marketing', deliverable: 'MetaAds', pageType: 'Override', versionMode: 'next', revisionMode: 'next', variation: 'B' }), flatten: { scale: 3 } });
+  await call('settings.save', { renamer: web({ client: 'Typed In Another File', mode: 'marketing', deliverable: 'MetaAds', pageType: 'Override', versions: '4r2', variation: 'B' }), flatten: { scale: 3 } });
   init = await call('init');
   const r = init.data.settings.renamer;
   assert.deepEqual([r.mode, r.deliverable], ['marketing', 'MetaAds']);
   assert.equal(r.client, '', 'a client never follows the designer into another file');
-  assert.deepEqual([r.pageType, r.versionMode, r.revisionMode, r.variation], ['', 'auto', 'keep', ''], 'one-off choices start fresh');
-  assert.equal(init.data.settings.flatten.scale, 3);
+  assert.deepEqual([r.pageType, r.versions, r.variation], ['', '', ''], 'one-off choices start fresh');
+  assert.equal(init.data.settings.flatten, undefined, 'Flatten & Merge has nothing to remember');
   assert.equal(env.figma.root.getPluginData('utilitykit.file.v1'), '', 'typing alone never writes to the file');
 
   const a = frame('a', 0, 1600);
@@ -479,7 +494,7 @@ test('rename in one click: names and applies the current selection', async () =>
 
   res = await call('rename.run', { settings: web() });          // again: nothing to do
   assert.deepEqual([res.data.renamed, res.data.unchanged], [0, 3]);
-  res = await call('rename.run', { settings: web({ revisionMode: 'next' }) });
+  res = await call('rename.run', { settings: web({ versions: 'r1' }) });
   assert.deepEqual([b.name, a.name, m.name].map((n) => n.split('_').pop()), ['V1R1', 'V2R1', 'V1R1']);
 });
 
@@ -487,20 +502,17 @@ test('settings: reset puts this designer back to defaults and leaves the file al
   const { env, call, UK, frame } = scene();
   const a = frame('a', 0, 1600);
   env.select([a]);
-  const settings = web({ client: 'Acme', resize: true, resizeTarget: 320 });
+  const settings = web({ client: 'Acme', includeSize: false });
   const pre = await call('rename.preview', { settings });
-  await call('rename.apply', { settings, expected: pre.data.expected, flatten: { scale: 4 } });
+  await call('rename.apply', { settings, expected: pre.data.expected });
   let init = await call('init');
-  assert.equal(init.data.settings.renamer.resize, true);
-  assert.equal(init.data.settings.flatten.scale, 4);
+  assert.equal(init.data.settings.renamer.includeSize, false);
 
   const res = await call('settings.reset');
   assert.equal(JSON.stringify(res.data.renamer), JSON.stringify(UK.naming.defaults()));
-  assert.equal(res.data.flatten.scale, 2);
-  assert.equal(a.name, 'Homepage_Mobile_Mockups_Acme_V1', 'reset never touches layers');
+  assert.equal(a.name, 'Homepage_Desktop_Mockups_Acme_V1', 'reset never touches layers');
 
   init = await call('init');
-  assert.equal(init.data.settings.renamer.resize, false);
-  assert.equal(init.data.settings.flatten.scale, 2);
+  assert.equal(init.data.settings.renamer.includeSize, true);
   assert.equal(init.data.settings.renamer.client, 'Acme', 'the file still remembers its own client');
 });

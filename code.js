@@ -8,7 +8,7 @@
  * Syntax is kept conservative on purpose (no optional chaining, no object
  * spread) because Figma's sandbox is stricter than a browser.
  */
-var UK = { VERSION: '1.5.0' };   // filled in from version.json by build.js
+var UK = { VERSION: '1.6.0' };   // filled in from version.json by build.js
 
 /** An error whose message is safe and useful to show to the designer. */
 UK.userError = function (message, code) {
@@ -83,7 +83,7 @@ function __ukCompile(source) {
 
 var UKLoader = (typeof UKLoader === 'object' && UKLoader) || (function () {
   var KEY = 'utilitykit.update.v1';
-  var BUNDLED = '1.5.0';          // the version in the plugin folder
+  var BUNDLED = '1.6.0';          // the version in the plugin folder
   var MIN_CHARS = 1000;
   var MAX_CHARS = 1500000;
 
@@ -238,7 +238,6 @@ UK.naming = (function () {
   var DEVICES = [{ width: 1600, tag: 'Desktop' }, { width: 320, tag: 'Mobile' }];
   // Short size codes the guideline allows for video deliverables.
   var VIDEO_SIZES = { '1080x1920': 'V', '1920x1080': 'H', '1080x1350': 'P', '1080x1080': 'S' };
-  var RESIZABLE = ['FRAME', 'COMPONENT', 'INSTANCE', 'GROUP', 'SECTION'];
   var SEP = '_';
 
   function defaults() {
@@ -251,13 +250,7 @@ UK.naming = (function () {
       task: '',
       variation: '',
       includeSize: true,
-      versionMode: 'auto',      // 'auto' keep existing + number new | 'next' +1 | 'set' start at versionValue
-      versionValue: 1,
-      revisionMode: 'keep',     // 'keep' | 'next' +1 | 'none' | 'set' revisionValue
-      revisionValue: 1,
-      resize: false,
-      resizeTarget: 1600,       // 1600 (Desktop) | 320 (Mobile)
-      resizeMode: 'scale'       // 'scale' keep aspect ratio | 'width' width only
+      versions: ''              // '' = automatic; otherwise what the designer typed: "2", "1r1", "r2", "1, 2, 3"
     };
   }
 
@@ -284,13 +277,7 @@ UK.naming = (function () {
     d.task = text(raw.task);
     d.variation = text(raw.variation);
     if (typeof raw.includeSize === 'boolean') d.includeSize = raw.includeSize;
-    d.versionMode = oneOf(raw.versionMode, ['auto', 'next', 'set'], d.versionMode);
-    d.versionValue = whole(raw.versionValue, 1, 999, d.versionValue);
-    d.revisionMode = oneOf(raw.revisionMode, ['keep', 'next', 'none', 'set'], d.revisionMode);
-    d.revisionValue = whole(raw.revisionValue, 0, 999, d.revisionValue);
-    if (typeof raw.resize === 'boolean') d.resize = raw.resize;
-    d.resizeTarget = oneOf(Number(raw.resizeTarget), [1600, 320], d.resizeTarget);
-    d.resizeMode = oneOf(raw.resizeMode, ['scale', 'width'], d.resizeMode);
+    d.versions = text(raw.versions);
     return d;
   }
 
@@ -304,10 +291,7 @@ UK.naming = (function () {
     s.client = d.client;
     s.pageType = d.pageType;
     s.variation = d.variation;
-    s.versionMode = d.versionMode;
-    s.versionValue = d.versionValue;
-    s.revisionMode = d.revisionMode;
-    s.revisionValue = d.revisionValue;
+    s.versions = d.versions;
     return s;
   }
 
@@ -409,8 +393,47 @@ UK.naming = (function () {
     return best;
   }
 
+  /** "V1, V1, V1" -> "V1"; otherwise the list as typed-able text. */
+  function collapseVersions(list) {
+    if (!list.length) return '';
+    for (var i = 1; i < list.length; i++) {
+      if (list[i] !== list[0]) return list.join(', ');
+    }
+    return list[0];
+  }
+
   function versionText(v, r) {
     return 'V' + v + (r > 0 ? 'R' + r : '');
+  }
+
+  /**
+   * Reads what the designer typed in the Version box.
+   *   "2" / "v2"      -> version 2
+   *   "1r2" / "V1R2"  -> version 1, revision 2
+   *   "r2"            -> keep the frame's version, revision 2
+   *   "1, 2, 3"       -> one per frame, left to right
+   * Returns { entries: [{ v, r }] } (v or r is null when not given) or { error }.
+   */
+  function parseVersions(input) {
+    var raw = String(input === null || input === undefined ? '' : input).trim();
+    if (!raw) return { entries: [] };
+    var parts = raw.split(/[,;]/), entries = [];
+    for (var i = 0; i < parts.length; i++) {
+      var part = parts[i].replace(/\s+/g, '');
+      if (!part) {
+        if (i === parts.length - 1) continue;             // a trailing comma while typing
+        return { error: 'There is an empty version in the list. Use for example 1, 2, 3.' };
+      }
+      var m = /^(?:v?(\d{1,3}))?(?:r(\d{1,3}))?$/i.exec(part);
+      if (!m || (m[1] === undefined && m[2] === undefined)) {
+        return { error: '\u201c' + parts[i].trim().slice(0, 20) + '\u201d isn\u2019t a version. Use for example 1, 1r2 or r2.' };
+      }
+      var v = m[1] === undefined ? null : Number(m[1]);
+      var r = m[2] === undefined ? null : Number(m[2]);
+      if (v === 0) return { error: 'Versions start at 1.' };
+      entries.push({ v: v, r: r });
+    }
+    return { entries: entries };
   }
 
   /** '' when the settings can produce a name, otherwise what is missing. */
@@ -423,10 +446,6 @@ UK.naming = (function () {
     }
     if (!compact(settings.client)) return 'Add the client name.';
     return '';
-  }
-
-  function willResize(settings, item) {
-    return settings.mode === 'web' && settings.resize && RESIZABLE.indexOf(item.type) !== -1 && item.width > 0;
   }
 
   function smallestFree(used, from) {
@@ -478,8 +497,7 @@ UK.naming = (function () {
         var variation = compact(settings.variation);
         if (variation) after.push(variation);
       } else {
-        var width = willResize(settings, item) ? settings.resizeTarget : item.width;
-        device = deviceFor(width);
+        device = deviceFor(item.width);
         if (device === 'Desktop') summary.desktop++;
         else if (device === 'Mobile') summary.mobile++;
         else {
@@ -501,41 +519,48 @@ UK.naming = (function () {
       (groups[key] = groups[key] || []).push(row);
     }
 
-    if (!error) {
-      for (var g in groups) {
-        if (!Object.prototype.hasOwnProperty.call(groups, g)) continue;
-        var list = groups[g], used = {}, r, n;
-
-        if (settings.versionMode === 'set') {
-          for (n = 0; n < list.length; n++) list[n]._v = settings.versionValue + n;
-        } else {
-          // First the layers that already carry a version (kept, or moved up by one)…
-          for (n = 0; n < list.length; n++) {
-            r = list[n];
-            if (!r._existing) continue;
-            var want = r._existing.v + (settings.versionMode === 'next' ? 1 : 0);
-            if (!used[want]) { r._v = want; used[want] = true; }
-          }
-          // …then everything else takes the next free number, left to right.
-          for (n = 0; n < list.length; n++) {
-            r = list[n];
-            if (r._v) continue;
-            r._v = smallestFree(used, 1);
-            used[r._v] = true;
-          }
-        }
-
-        for (n = 0; n < list.length; n++) {
-          r = list[n];
-          var sameVersion = !!r._existing && r._existing.v === r._v;
-          var rev = sameVersion ? r._existing.r : 0;          // a revision belongs to its version
-          if (settings.revisionMode === 'set') rev = settings.revisionValue;
-          else if (settings.revisionMode === 'none') rev = 0;
-          else if (settings.revisionMode === 'next' && sameVersion) rev = rev + 1;
-          r.version = versionText(r._v, rev);
-          r.proposed = r._before.concat([r.version], r._after).join(SEP);
-        }
+    // 1. What each layer would get on its own: a layer that already has a version keeps
+    //    it (and its revision); the others take the next free number, left to right.
+    for (var g in groups) {
+      if (!Object.prototype.hasOwnProperty.call(groups, g)) continue;
+      var list = groups[g], used = {}, r, n;
+      for (n = 0; n < list.length; n++) {
+        r = list[n];
+        if (r._existing && !used[r._existing.v]) { r._v = r._existing.v; r._r = r._existing.r; used[r._v] = true; }
       }
+      for (n = 0; n < list.length; n++) {
+        r = list[n];
+        if (r._v) continue;
+        r._v = smallestFree(used, 1);
+        r._r = 0;
+        used[r._v] = true;
+      }
+    }
+    var autoList = [];
+    for (var a = 0; a < rows.length; a++) autoList.push(versionText(rows[a]._v, rows[a]._r));
+
+    // 2. What the designer typed in the Version box replaces that: one value for
+    //    every layer, or one value per layer in the same left-to-right order.
+    var typed = parseVersions(settings.versions);
+    var versionError = typed.error || '';
+    if (!versionError && typed.entries.length > 1 && rows.length && typed.entries.length !== rows.length) {
+      versionError = rows.length + (rows.length === 1 ? ' frame' : ' frames') + ' selected, ' + typed.entries.length + ' versions typed. Type one version, or one for each frame.';
+    }
+    if (!versionError && typed.entries.length) {
+      for (var t = 0; t < rows.length; t++) {
+        var entry = typed.entries.length === 1 ? typed.entries[0] : typed.entries[t];
+        if (entry.v !== null) { rows[t]._v = entry.v; rows[t]._r = entry.r === null ? 0 : entry.r; }
+        else rows[t]._r = entry.r;                        // "r2": keep the version, set the revision
+      }
+    }
+    if (!error && versionError) error = versionError;
+
+    var versionList = [];
+    for (var q = 0; q < rows.length; q++) {
+      var row3 = rows[q];
+      row3.version = versionText(row3._v, row3._r);
+      versionList.push(row3.version);
+      if (!error) row3.proposed = row3._before.concat([row3.version], row3._after).join(SEP);
     }
 
     var willRename = 0, unchanged = 0;
@@ -544,7 +569,7 @@ UK.naming = (function () {
       if (error) row2.proposed = row2.current;
       row2.changed = row2.proposed !== row2.current;
       if (row2.changed) willRename++; else unchanged++;
-      delete row2._before; delete row2._after; delete row2._existing; delete row2._v;
+      delete row2._before; delete row2._after; delete row2._existing; delete row2._v; delete row2._r;
     }
 
     return {
@@ -555,6 +580,8 @@ UK.naming = (function () {
       pageType: pageType,
       autoPageType: autoPageType,
       summary: summary,
+      versionsAuto: collapseVersions(autoList),     // what the Version box shows until the designer types
+      versionList: versionList,
       rows: rows,
       counts: { selected: rows.length, willRename: willRename, unchanged: unchanged }
     };
@@ -565,7 +592,6 @@ UK.naming = (function () {
     DELIVERABLES: DELIVERABLES,
     VARIATIONS: VARIATIONS,
     DEVICES: DEVICES,
-    RESIZABLE: RESIZABLE,
     defaults: defaults,
     normalize: normalize,
     persistable: persistable,
@@ -575,18 +601,18 @@ UK.naming = (function () {
     deviceFor: deviceFor,
     sizeFor: sizeFor,
     readVersion: readVersion,
+    parseVersions: parseVersions,
     clientIn: clientIn,
     clientFromNames: clientFromNames,
     validate: validate,
-    willResize: willResize,
     plan: plan
   };
 })();
 
 // ---- 20-renamer.js ----
 /*
- * Layer Renamer — reads the selection and the current page, previews, applies
- * names, and optionally resizes frames to the standard Desktop / Mobile width.
+ * Layer Renamer — reads the selection and the current page, works the names
+ * out, and applies them. It only ever changes layer names.
  */
 UK.renamer = (function () {
   var N = UK.naming;
@@ -607,63 +633,10 @@ UK.renamer = (function () {
     };
   }
 
-  /** What resizing would do to one node, without doing it. */
-  function resizePlan(node, settings) {
-    var target = settings.resizeTarget, mode = settings.resizeMode;
-    if (N.RESIZABLE.indexOf(node.type) === -1) return { action: 'skip', reason: 'Only frames are resized' };
-    var w = node.width, h = node.height;
-    if (typeof w !== 'number' || typeof h !== 'number' || !(w > 0) || !(h > 0)) {
-      return { action: 'skip', reason: 'This layer has no size to change' };
-    }
-    if (typeof node.resize !== 'function' && typeof node.rescale !== 'function' && typeof node.resizeWithoutConstraints !== 'function') {
-      return { action: 'skip', reason: 'This layer type can’t be resized' };
-    }
-    if (Math.abs(w - target) < 0.01) return { action: 'none' };
-    var toHeight = mode === 'width' ? h : h * (target / w);
-    return { action: 'resize', toWidth: target, toHeight: toHeight, fromWidth: w, fromHeight: h };
-  }
-
-  function resizeNode(node, settings) {
-    var rp = resizePlan(node, settings);
-    if (rp.action !== 'resize') return rp;
-    if (settings.resizeMode === 'scale' && typeof node.rescale === 'function') {
-      node.rescale(rp.toWidth / node.width);
-    } else if (typeof node.resize === 'function') {
-      node.resize(rp.toWidth, Math.max(0.01, rp.toHeight));
-    } else {
-      node.resizeWithoutConstraints(rp.toWidth, Math.max(0.01, rp.toHeight));
-    }
-    return rp;
-  }
-
-  function round(n) { return Math.round(n * 100) / 100; }
-
   function buildPreview(rawSettings, nodes, limit) {
-    var byId = {}, items = [];
-    for (var i = 0; i < nodes.length; i++) {
-      var item = readItem(nodes[i]);
-      items.push(item);
-      byId[item.id] = nodes[i];
-    }
+    var items = [];
+    for (var i = 0; i < nodes.length; i++) items.push(readItem(nodes[i]));
     var p = N.plan(rawSettings, items, { pageName: figma.currentPage.name });
-    var settings = p.settings;
-    var resizing = settings.mode === 'web' && settings.resize;
-
-    var willResize = 0, resizeSkipped = 0;
-    if (resizing && !p.error) {
-      for (var j = 0; j < p.rows.length; j++) {
-        var row = p.rows[j];
-        var rp = resizePlan(byId[row.id], settings);
-        if (rp.action === 'resize') {
-          willResize++;
-          row.resize = round(rp.fromWidth) + ' × ' + round(rp.fromHeight) + ' → ' + round(rp.toWidth) + ' × ' + round(rp.toHeight);
-        } else if (rp.action === 'skip') {
-          resizeSkipped++;
-          row.resizeNote = rp.reason;
-        }
-      }
-    }
-
     var max = typeof limit === 'number' ? limit : MAX_ROWS_TO_UI;
     return {
       error: p.error,
@@ -672,18 +645,13 @@ UK.renamer = (function () {
       pageType: p.pageType,
       autoPageType: p.autoPageType,
       summary: p.summary,
-      counts: {
-        selected: p.counts.selected,
-        willRename: p.counts.willRename,
-        unchanged: p.counts.unchanged,
-        willResize: willResize,
-        resizeSkipped: resizeSkipped
-      },
-      resize: resizing,
-      resizeTarget: settings.resizeTarget,
+      versionsAuto: p.versionsAuto,
+      versionList: p.versionList.slice(0, 12),
+      versionCount: p.versionList.length,
+      counts: p.counts,
       rows: p.rows.slice(0, max),
       hiddenRows: Math.max(0, p.rows.length - max),
-      // Every id + proposed name, so Apply can prove nothing moved under the preview.
+      // Every id + proposed name, so apply() can prove nothing moved underneath it.
       expected: p.rows.map(function (r) { return { id: r.id, proposed: r.proposed }; })
     };
   }
@@ -694,9 +662,9 @@ UK.renamer = (function () {
   }
 
   /**
-   * Applies exactly what the designer saw. If any layer was deleted, renamed,
-   * moved or resized since the preview (so its name would now come out
-   * differently), nothing is changed and a fresh preview is returned.
+   * Applies exactly the names in `expected`. If any layer was deleted, renamed,
+   * moved or resized in between (so its name would now come out differently),
+   * nothing is changed and a fresh preview is returned.
    */
   async function apply(payload) {
     payload = payload || {};
@@ -710,7 +678,7 @@ UK.renamer = (function () {
       if (!node || node.removed) missing++;
       else { nodes.push(node); byId[node.id] = node; }
     }
-    if (!nodes.length) throw UK.userError('Those layers no longer exist. Select layers and preview again.');
+    if (!nodes.length) throw UK.userError('Those layers no longer exist. Select layers and try again.');
 
     var fresh = buildPreview(settings, nodes, MAX_ROWS_TO_UI);
     if (fresh.error) throw UK.userError(fresh.error);
@@ -723,56 +691,34 @@ UK.renamer = (function () {
     }
     if (stale) return { stale: true, preview: fresh };
 
-    var renamed = 0, unchanged = 0, resized = 0;
-    var failed = [], resizeSkipped = [];
-    var resizing = settings.mode === 'web' && settings.resize;
-
+    var renamed = 0, unchanged = 0, failed = [];
     for (i = 0; i < fresh.expected.length; i++) {
       var n = byId[fresh.expected[i].id];
       var proposed = fresh.expected[i].proposed;
       var before = n.name;
-      if (proposed !== before) {
+      if (proposed === before) { unchanged++; continue; }
+      try {
+        n.name = proposed;
+        renamed++;
         try {
-          n.name = proposed;
-          renamed++;
-          try {
-            if (!n.getPluginData(PD_ORIGINAL)) n.setPluginData(PD_ORIGINAL, before);
-          } catch (e1) { /* naming worked; remembering the original is optional */ }
-        } catch (e2) {
-          failed.push({ name: before, reason: UK.describeError(e2) });
-        }
-      } else {
-        unchanged++;
-      }
-      if (resizing) {
-        try {
-          var rp = resizeNode(n, settings);
-          if (rp.action === 'resize') resized++;
-          else if (rp.action === 'skip') resizeSkipped.push({ name: n.name, reason: rp.reason });
-        } catch (e3) {
-          resizeSkipped.push({ name: n.name, reason: UK.describeError(e3) });
-        }
+          if (!n.getPluginData(PD_ORIGINAL)) n.setPluginData(PD_ORIGINAL, before);
+        } catch (e1) { /* naming worked; remembering the original is optional */ }
+      } catch (e2) {
+        failed.push({ name: before, reason: UK.describeError(e2) });
       }
     }
 
     try { figma.commitUndo(); } catch (e4) { /* older runtimes */ }
 
-    var summary = renamed === 0 && resized === 0
-      ? 'Nothing needed changing'
-      : 'Renamed ' + UK.plural(renamed, 'layer') + (resizing ? ', resized ' + resized : '');
+    var summary = renamed === 0 ? 'Nothing needed changing' : 'Renamed ' + UK.plural(renamed, 'frame');
     UK.notify(failed.length ? summary + ' — ' + failed.length + ' failed' : summary, failed.length > 0 && renamed === 0);
 
     return {
       stale: false,
       renamed: renamed,
       unchanged: unchanged,
-      resized: resized,
-      resizeRequested: resizing,
-      resizeTarget: settings.resizeTarget,
       failed: failed.slice(0, 20),
-      failedCount: failed.length,
-      resizeSkipped: resizeSkipped.slice(0, 20),
-      resizeSkippedCount: resizeSkipped.length
+      failedCount: failed.length
     };
   }
 
@@ -803,26 +749,27 @@ UK.renamer = (function () {
     return { compact: client, example: client ? pageType + '_' + client + '_V1' : '' };
   }
 
-  return { preview: preview, apply: apply, run: run, detectClient: detectClient, clientExample: clientExample, resizePlan: resizePlan, buildPreview: buildPreview };
+  return { preview: preview, apply: apply, run: run, detectClient: detectClient, clientExample: clientExample, buildPreview: buildPreview };
 })();
 
 // ---- 30-flatten.js ----
 /*
- * Flatten & Merge — renders selected layers to PNG and places the result on the canvas.
+ * Flatten & Merge — turns the selected layers into one image named "[Print]".
  *
  * Rules this module keeps:
- *  - Originals are never edited. Rendering works on temporary copies that are
- *    removed again, even if something fails.
- *  - Originals are only removed when the designer chose "Replace originals"
- *    AND confirmed it, and only after the image exists.
- *  - Figma rejects image fills larger than 4096 px on a side, so large output is
- *    split into seamless tiles and grouped instead of being silently downscaled.
+ *  - Originals are never edited, moved or removed. Rendering works on temporary
+ *    copies that are deleted again, even if something fails.
+ *  - The image is made at 1x (the layers' own pixel size) and placed beside the
+ *    originals.
+ *  - Figma rejects image fills larger than 4096 px on a side, so a larger result
+ *    is split into seamless pieces in one group rather than being shrunk.
  */
 UK.flatten = (function () {
   var MAX_IMAGE = 4096;
   var MAX_TILES = 36;
-  var SCALES = [1, 2, 3, 4];
+  var SCALE = 1;
   var GAP = 80;
+  var RESULT_NAME = '[Print]';
   var TEMP_NAME = 'UtilityKit temp (safe to delete)';
 
   function boundsOf(node) {
@@ -871,33 +818,14 @@ UK.flatten = (function () {
     return { x: x0, y: y0, width: Math.max(1, Math.ceil(b.x + b.width) - x0), height: Math.max(1, Math.ceil(b.y + b.height) - y0) };
   }
 
-  function tilePlan(width, height, scale) {
-    var tile = Math.max(1, Math.floor(MAX_IMAGE / scale));
+  function tilePlan(width, height) {
+    var tile = Math.max(1, Math.floor(MAX_IMAGE / SCALE));
     var cols = Math.ceil(width / tile), rows = Math.ceil(height / tile);
     return { tile: tile, cols: cols, rows: rows, count: cols * rows };
   }
 
-  function cleanScale(scale) {
-    var s = Number(scale);
-    return SCALES.indexOf(s) === -1 ? 2 : s;
-  }
-
-  function describe(box, scale) {
-    var t = tilePlan(box.width, box.height, scale);
-    return {
-      width: Math.round(box.width * 100) / 100,
-      height: Math.round(box.height * 100) / 100,
-      pxWidth: Math.ceil(box.width * scale),
-      pxHeight: Math.ceil(box.height * scale),
-      tiles: t.count,
-      tooLarge: t.count > MAX_TILES
-    };
-  }
-
-  /** Read-only description of what a flatten would produce. */
-  function summary(payload) {
-    payload = payload || {};
-    var scale = cleanScale(payload.scale);
+  /** Read-only description of what "Merge into one" would produce. */
+  function summary() {
     var nodes = figma.currentPage.selection.slice();
     var parts = split(nodes);
     var out = {
@@ -905,43 +833,18 @@ UK.flatten = (function () {
       usable: parts.usable.length,
       skipped: parts.skipped.slice(0, 20),
       skippedCount: parts.skipped.length,
-      scale: scale,
       maxImage: MAX_IMAGE,
-      merged: null,
-      each: null
+      resultName: RESULT_NAME,
+      width: 0, height: 0, tiles: 0, tooLarge: false
     };
     if (!parts.usable.length) return out;
-
-    var boxes = parts.usable.map(boundsOf);
-    out.merged = describe(snap(union(boxes)), scale);
-
-    var tiled = 0, tooLarge = 0;
-    for (var i = 0; i < boxes.length; i++) {
-      var d = describe(snap(boxes[i]), scale);
-      if (d.tiles > 1) tiled++;
-      if (d.tooLarge) tooLarge++;
-    }
-    out.each = { tiled: tiled, tooLarge: tooLarge };
+    var box = snap(union(parts.usable.map(boundsOf)));
+    var t = tilePlan(box.width, box.height);
+    out.width = box.width;
+    out.height = box.height;
+    out.tiles = t.count;
+    out.tooLarge = t.count > MAX_TILES;
     return out;
-  }
-
-  // ---- geometry helpers -------------------------------------------------
-
-  function invert(m) {
-    var a = m[0][0], c = m[0][1], e = m[0][2], b = m[1][0], d = m[1][1], f = m[1][2];
-    var det = a * d - b * c;
-    if (!det) return [[1, 0, -e], [0, 1, -f]];
-    return [
-      [d / det, -c / det, (c * f - d * e) / det],
-      [-b / det, a / det, (b * e - a * f) / det]
-    ];
-  }
-
-  function multiply(m, n) {
-    return [
-      [m[0][0] * n[0][0] + m[0][1] * n[1][0], m[0][0] * n[0][1] + m[0][1] * n[1][1], m[0][0] * n[0][2] + m[0][1] * n[1][2] + m[0][2]],
-      [m[1][0] * n[0][0] + m[1][1] * n[1][0], m[1][0] * n[0][1] + m[1][1] * n[1][1], m[1][0] * n[0][2] + m[1][1] * n[1][2] + m[1][2]]
-    ];
   }
 
   function indexPath(node) {
@@ -973,8 +876,6 @@ UK.flatten = (function () {
     return n;
   }
 
-  // ---- rendering --------------------------------------------------------
-
   function imageRect(bytes, box, name) {
     var image = figma.createImage(bytes);
     var rect = figma.createRectangle();
@@ -986,26 +887,24 @@ UK.flatten = (function () {
     return rect;
   }
 
-  function pngSettings(scale) {
-    return { format: 'PNG', constraint: { type: 'SCALE', value: scale } };
-  }
+  var PNG = { format: 'PNG', constraint: { type: 'SCALE', value: SCALE } };
 
   /**
    * Renders nodes into one result node sitting on the current page at the
    * selection's own position. Returns { node, tiles, box }.
    */
-  async function render(nodes, name, scale) {
+  async function render(nodes) {
     var box = snap(union(nodes.map(boundsOf)));
-    var plan = tilePlan(box.width, box.height, scale);
+    var plan = tilePlan(box.width, box.height);
     if (plan.count > MAX_TILES) {
-      throw UK.userError('“' + name + '” is too large to flatten at ' + scale + '×. Try a lower scale.');
+      throw UK.userError('This selection is too large to turn into an image (' + box.width + ' × ' + box.height + ' px). Select fewer layers.');
     }
 
     // One layer that fits in one image: export it directly, no copies involved.
     if (nodes.length === 1 && plan.count === 1) {
       var exact = boundsOf(nodes[0]);
-      var direct = await nodes[0].exportAsync(pngSettings(scale));
-      return { node: imageRect(direct, exact, name), tiles: 1, box: exact };
+      var direct = await nodes[0].exportAsync(PNG);
+      return { node: imageRect(direct, exact, RESULT_NAME), tiles: 1, box: exact };
     }
 
     // Otherwise render copies inside a temporary clipping frame ("view").
@@ -1049,8 +948,8 @@ UK.flatten = (function () {
           view.resize(tw, th);
           stage.x = -tx;
           stage.y = -ty;
-          var bytes = await view.exportAsync(pngSettings(scale));
-          var tileName = plan.count > 1 ? 'Tile ' + (row * plan.cols + col + 1) : name;
+          var bytes = await view.exportAsync(PNG);
+          var tileName = plan.count > 1 ? 'Part ' + (row * plan.cols + col + 1) : RESULT_NAME;
           rects.push(imageRect(bytes, { x: box.x + tx, y: box.y + ty, width: tw, height: th }, tileName));
         }
       }
@@ -1063,149 +962,52 @@ UK.flatten = (function () {
 
     if (rects.length === 1) return { node: rects[0], tiles: 1, box: box };
     var group = figma.group(rects, figma.currentPage);
-    group.name = name;
+    group.name = RESULT_NAME;
     return { node: group, tiles: rects.length, box: box };
   }
 
-  /** Puts `result` into `parent` at `index`, keeping its position on the canvas. */
-  function moveInto(result, parent, index, at) {
-    try {
-      parent.insertChild(index, result);
-    } catch (e) {
-      return false;
-    }
-    try {
-      var container = parent;
-      while (container && (container.type === 'GROUP' || container.type === 'BOOLEAN_OPERATION')) container = container.parent;
-      if (container && container.type !== 'PAGE' && container.absoluteTransform) {
-        result.relativeTransform = multiply(invert(container.absoluteTransform), [[1, 0, at.x], [0, 1, at.y]]);
-      } else {
-        result.x = at.x;
-        result.y = at.y;
-      }
-    } catch (e2) { /* auto layout parents position their children themselves */ }
-    return true;
-  }
-
-  function removeOriginals(nodes) {
-    var removed = 0, kept = 0;
-    for (var i = 0; i < nodes.length; i++) {
-      try { nodes[i].remove(); removed++; } catch (e) { kept++; }
-    }
-    return { removed: removed, kept: kept };
-  }
-
-  /**
-   * payload: { mode: 'each' | 'merge', scale, replace, confirmReplace }
-   */
-  async function run(payload) {
-    payload = payload || {};
-    var mode = payload.mode === 'merge' ? 'merge' : 'each';
-    var scale = cleanScale(payload.scale);
-    var replace = payload.replace === true;
-    if (replace && payload.confirmReplace !== true) {
-      throw UK.userError('Replacing originals needs to be confirmed first.');
-    }
-
+  /** Merges the selected layers into one image named "[Print]", placed beside them. */
+  async function run() {
     var selection = figma.currentPage.selection.slice();
-    if (!selection.length) throw UK.userError('Select at least one layer to flatten.');
+    if (!selection.length) throw UK.userError('Select at least one layer to merge.');
     var parts = split(selection);
     if (!parts.usable.length) {
-      throw UK.userError('Nothing in the selection can be flattened — ' + parts.skipped[0].reason.toLowerCase() + '.');
+      throw UK.userError('Nothing in the selection can be turned into an image — ' + parts.skipped[0].reason.toLowerCase() + '.');
     }
-    if (mode === 'merge' && parts.usable.length < 2) mode = 'each';
-
     var usable = inPaintOrder(parts.usable);
-    var jobs = [];
-    if (mode === 'merge') {
-      jobs.push({ nodes: usable, name: 'Merged — ' + UK.plural(usable.length, 'layer') });
-    } else {
-      for (var i = 0; i < usable.length; i++) jobs.push({ nodes: [usable[i]], name: usable[i].name + ' (Flattened)' });
-    }
 
-    // Where "beside the originals" is: clear of every artboard the selection lives in.
+    // "Beside the originals": clear of every artboard the selection lives in.
     var selectionBox = union(usable.map(boundsOf));
     var anchors = union(usable.map(function (n) { return boundsOf(topLevel(n)) || boundsOf(n); }));
     var shiftX = (anchors.x + anchors.width + GAP) - selectionBox.x;
 
-    var created = [], failed = [], tiles = 0, removed = 0, keptOriginals = 0;
-
-    for (var j = 0; j < jobs.length; j++) {
-      var job = jobs[j];
-      UK.emit('progress', { done: j, total: jobs.length, label: job.name });
-      try {
-        // Remember where the originals sit before anything is created.
-        var parent = job.nodes[0].parent;
-        var sameParent = true, topIndex = -1;
-        for (var k = 0; k < job.nodes.length; k++) {
-          if (job.nodes[k].parent !== parent) sameParent = false;
-        }
-        if (sameParent && parent) {
-          for (var m = 0; m < job.nodes.length; m++) topIndex = Math.max(topIndex, parent.children.indexOf(job.nodes[m]));
-        }
-
-        var out = await render(job.nodes, job.name, scale);
-        tiles += out.tiles;
-
-        if (replace) {
-          if (sameParent && parent && topIndex >= 0) {
-            moveInto(out.node, parent, topIndex + 1, { x: out.box.x, y: out.box.y });
-          }
-          var res = removeOriginals(job.nodes);
-          removed += res.removed;
-          keptOriginals += res.kept;
-        } else {
-          out.node.x = out.node.x + shiftX;
-        }
-        created.push(out.node);
-      } catch (err) {
-        failed.push({ name: job.name, reason: UK.describeError(err) });
-      }
+    var out;
+    try {
+      out = await render(usable);
+    } catch (err) {
+      if (err && err.userFacing) throw err;
+      var why = UK.describeError(err).replace(/[.\s]*$/, '.');
+      throw UK.userError('The image couldn’t be made — ' + why + ' Your layers were not changed.');
     }
-    UK.emit('progress', { done: jobs.length, total: jobs.length, label: '' });
+    out.node.x = out.node.x + shiftX;
 
-    if (created.length) {
-      try { figma.currentPage.selection = created; } catch (e) { /* selection is a convenience */ }
-    }
+    try { figma.currentPage.selection = [out.node]; } catch (e) { /* selecting it is a convenience */ }
     try { figma.commitUndo(); } catch (e2) { /* older runtimes */ }
-
-    if (!created.length) {
-      var why = (failed[0] ? failed[0].reason : 'the export did not complete').replace(/[.\s]*$/, '.');
-      throw UK.userError('Flatten failed — ' + why + ' Your layers were not changed.');
-    }
-
-    UK.notify(mode === 'merge'
-      ? 'Merged ' + UK.plural(usable.length, 'layer') + ' into one image'
-      : 'Flattened ' + UK.plural(created.length, 'layer'));
+    UK.notify(usable.length > 1 ? 'Merged ' + usable.length + ' layers into ' + RESULT_NAME : 'Made ' + RESULT_NAME + ' from 1 layer');
 
     return {
-      mode: mode,
-      scale: scale,
-      created: created.map(function (n) { return n.id; }),
+      name: RESULT_NAME,
+      created: [out.node.id],
       selectionKey: UK.selectionKey(figma.currentPage.selection),
-      createdCount: created.length,
       sourceCount: usable.length,
-      tiles: tiles,
-      tiled: tiles > created.length,
-      replaced: replace,
-      removed: removed,
-      keptOriginals: keptOriginals,
-      failed: failed.slice(0, 20),
-      failedCount: failed.length,
+      tiles: out.tiles,
+      tiled: out.tiles > 1,
       skipped: parts.skipped.slice(0, 20),
       skippedCount: parts.skipped.length
     };
   }
 
-  return {
-    MAX_IMAGE: MAX_IMAGE,
-    SCALES: SCALES,
-    summary: summary,
-    run: run,
-    tilePlan: tilePlan,
-    invert: invert,
-    multiply: multiply
-  };
+  return { MAX_IMAGE: MAX_IMAGE, RESULT_NAME: RESULT_NAME, summary: summary, run: run, tilePlan: tilePlan };
 })();
 
 // ---- 40-drive.js ----
@@ -1760,21 +1562,16 @@ UK.updates = (function () {
       merged.client = UK.renamer.detectClient();
       if (merged.client) clientSource = 'frames';
     }
-    var flatten = stored.flatten && typeof stored.flatten === 'object' ? stored.flatten : {};
     return {
       clientSource: clientSource,
       renamer: UK.naming.normalize(merged),
-      flatten: { scale: UK.flatten.SCALES.indexOf(Number(flatten.scale)) === -1 ? 2 : Number(flatten.scale) },
       fileHasOwn: Object.keys(file).length > 0
     };
   }
 
   async function saveSettings(payload) {
     payload = payload || {};
-    var data = {
-      renamer: UK.naming.persistable(payload.renamer),
-      flatten: { scale: payload.flatten && UK.flatten.SCALES.indexOf(Number(payload.flatten.scale)) !== -1 ? Number(payload.flatten.scale) : 2 }
-    };
+    var data = { renamer: UK.naming.persistable(payload.renamer) };
     await figma.clientStorage.setAsync(STORAGE_KEY, data);
     return { saved: true };
   }
@@ -1809,14 +1606,13 @@ UK.updates = (function () {
         install: UK.updates.installInfo(),
         settings: await loadSettings(),
         selection: selectionInfo(),
-        naming: { phases: UK.naming.PHASES, deliverables: UK.naming.DELIVERABLES, variations: UK.naming.VARIATIONS, devices: UK.naming.DEVICES },
-        scales: UK.flatten.SCALES
+        naming: { phases: UK.naming.PHASES, deliverables: UK.naming.DELIVERABLES, variations: UK.naming.VARIATIONS, devices: UK.naming.DEVICES }
       };
     },
     'settings.save': saveSettings,
     /** Puts this designer's saved choices back to the defaults. Files keep their own client and project choices. */
     'settings.reset': async function () {
-      var fresh = { renamer: UK.naming.defaults(), flatten: { scale: 2 } };
+      var fresh = { renamer: UK.naming.defaults() };
       await figma.clientStorage.setAsync(STORAGE_KEY, fresh);
       return fresh;
     },
@@ -1829,7 +1625,7 @@ UK.updates = (function () {
       if (!result.stale) {
         var settings = UK.naming.normalize(payload && payload.settings);
         saveFileData(settings);
-        try { await saveSettings({ renamer: settings, flatten: payload && payload.flatten }); } catch (e) { /* not fatal */ }
+        try { await saveSettings({ renamer: settings }); } catch (e) { /* not fatal */ }
       }
       return result;
     },
@@ -1860,13 +1656,13 @@ UK.updates = (function () {
       if (!result.stale) {
         var settings = UK.naming.normalize(payload && payload.settings);
         saveFileData(settings);
-        try { await saveSettings({ renamer: settings, flatten: payload && payload.flatten }); } catch (e) { /* not fatal */ }
+        try { await saveSettings({ renamer: settings }); } catch (e) { /* not fatal */ }
       }
       return result;
     },
 
-    'flatten.summary': function (payload) { return UK.flatten.summary(payload); },
-    'flatten.run': function (payload) { return UK.flatten.run(payload); },
+    'flatten.summary': function () { return UK.flatten.summary(); },
+    'flatten.run': function () { return UK.flatten.run(); },
 
     'drive.scan': function () { return UK.drive.scan(); },
     'drive.add': function (payload) { return UK.drive.add(payload); },
