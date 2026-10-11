@@ -106,6 +106,12 @@ i[data-icon] { display: inline-flex; width: 16px; height: 16px; flex: none; }
 #stUpdBox .note-body ul { color: var(--text); }
 .note .btn.danger { color: #fff; }
 .lede { color: var(--muted); padding: 2px 2px 0; }
+.bar-end { margin-left: auto; }
+.about h2 { font-size: 12.5px; }
+.about p { color: var(--muted); line-height: 1.5; }
+.about ul { margin: 0; padding-left: 16px; display: flex; flex-direction: column; gap: 6px; color: var(--muted); line-height: 1.45; }
+.about li b { color: var(--text); font-weight: 600; }
+.about-foot { color: var(--faint); font-size: 10.5px; text-align: center; padding: 2px 0 6px; }
 
 /* ── home tools ── */
 .tool { display: flex; align-items: center; gap: 11px; width: 100%; text-align: left; padding: 11px 10px 11px 11px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); box-shadow: var(--shadow); cursor: pointer; transition: border-color .12s, transform .12s; }

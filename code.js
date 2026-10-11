@@ -8,7 +8,7 @@
  * Syntax is kept conservative on purpose (no optional chaining, no object
  * spread) because Figma's sandbox is stricter than a browser.
  */
-var UK = { VERSION: '1.9.1' };   // filled in from version.json by build.js
+var UK = { VERSION: '2.0.0' };   // filled in from version.json by build.js
 
 /** An error whose message is safe and useful to show to the designer. */
 UK.userError = function (message, code) {
@@ -83,7 +83,7 @@ function __ukCompile(source) {
 
 var UKLoader = (typeof UKLoader === 'object' && UKLoader) || (function () {
   var KEY = 'utilitykit.update.v1';
-  var BUNDLED = '1.9.1';          // the version in the plugin folder
+  var BUNDLED = '2.0.0';          // the version in the plugin folder
   var MIN_CHARS = 1000;
   var MAX_CHARS = 1500000;
 

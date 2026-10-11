@@ -112,7 +112,7 @@
     installing: false
   };
 
-  var TITLES = { renamer: 'Layer Renamer', flatten: 'Flatten & Merge', drive: 'Google Drive Links' };
+  var TITLES = { renamer: 'Layer Renamer', flatten: 'Flatten & Merge', drive: 'Google Drive Links', about: 'About' };
   var PARENT = { renamer: 'home', flatten: 'home', drive: 'home' };
 
   // ── toast / notes ───────────────────────────────────────────────────────
@@ -165,6 +165,7 @@
     $('title').hidden = home;
     $('title').textContent = TITLES[screen] || '';
     $('selPill').hidden = !(screen === 'renamer' || screen === 'flatten');     // only where the selection is what gets changed
+    $('openAbout').hidden = !home;                                              // About is reached from Home only
     $('toast').hidden = true;
     if (screen === 'renamer') enterRenamer();
     if (screen === 'flatten') { state.flatten.result = null; refreshSummary(); }
@@ -729,6 +730,7 @@
   function bind() {
     $('back').addEventListener('click', goBack);
     $('updCheck').addEventListener('click', function () { checkUpdates('updCheck'); });
+    $('openAbout').addEventListener('click', function () { go('about'); });
     var tools = document.querySelectorAll('[data-go]');
     for (var i = 0; i < tools.length; i++) {
       tools[i].addEventListener('click', function (e) { go(e.currentTarget.getAttribute('data-go')); });
@@ -814,6 +816,7 @@
       state.settings = data.settings.renamer;
       state.selection = data.selection;
       $('version').textContent = 'v' + data.version;
+      $('aboutVersion').textContent = 'UtilityKit v' + data.version;
       state.version = data.version;
       state.install = data.install || null;
       renderSelection();

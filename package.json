@@ -1,6 +1,6 @@
 {
   "name": "utilitykit",
-  "version": "1.9.1",
+  "version": "2.0.0",
   "description": "UtilityKit — Figma plugin: Layer Renamer, Flatten & Merge, Google Drive Links.",
   "private": true,
   "scripts": {

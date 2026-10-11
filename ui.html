@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="utilitykit-version" content="1.9.1">
+<meta name="utilitykit-version" content="2.0.0">
 <title>UtilityKit</title>
 <style>:root {
   --bg: #F5F5F7;
@@ -113,6 +113,12 @@ i[data-icon] { display: inline-flex; width: 16px; height: 16px; flex: none; }
 #stUpdBox .note-body ul { color: var(--text); }
 .note .btn.danger { color: #fff; }
 .lede { color: var(--muted); padding: 2px 2px 0; }
+.bar-end { margin-left: auto; }
+.about h2 { font-size: 12.5px; }
+.about p { color: var(--muted); line-height: 1.5; }
+.about ul { margin: 0; padding-left: 16px; display: flex; flex-direction: column; gap: 6px; color: var(--muted); line-height: 1.45; }
+.about li b { color: var(--text); font-weight: 600; }
+.about-foot { color: var(--faint); font-size: 10.5px; text-align: center; padding: 2px 0 6px; }
 
 /* ── home tools ── */
 .tool { display: flex; align-items: center; gap: 11px; width: 100%; text-align: left; padding: 11px 10px 11px 11px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); box-shadow: var(--shadow); cursor: pointer; transition: border-color .12s, transform .12s; }
@@ -315,6 +321,7 @@ html.figma-dark .toast.error { background: #D9473E; color: #fff; }
     </div>
     <h1 class="bar-title" id="title" hidden></h1>
     <div class="pill" id="selPill" title="Layers selected on the canvas" hidden><span class="dot"></span><span id="selText">0 selected</span></div>
+    <button class="icon-btn bar-end" id="openAbout" type="button" aria-label="About UtilityKit" title="About"><i data-icon="info"></i></button>
   </header>
 
   <main class="main">
@@ -449,6 +456,27 @@ html.figma-dark .toast.error { background: #D9473E; color: #fff; }
       </div>
     </section>
 
+    <!-- ───────────── About ───────────── -->
+    <section class="screen" data-screen="about" hidden>
+      <div class="scroll">
+        <div class="card about">
+          <h2>What it is</h2>
+          <p>UtilityKit is a small Figma plugin for the everyday chores that slow design work down: naming frames, merging layers for print, and finding the project’s Google Drive link.</p>
+        </div>
+        <div class="card about">
+          <h2>Why it was made</h2>
+          <p>These jobs are simple, but doing them by hand takes time and comes out a little different for each person. UtilityKit does each one in a click, the same way every time.</p>
+          <ul>
+            <li><b>Less typing.</b> It reads the page name, frame size and client from the file instead of asking.</li>
+            <li><b>The same names for everyone.</b> Frames follow the team naming guideline.</li>
+            <li><b>One job, one button.</b> Nothing to set up and nothing to learn.</li>
+            <li><b>Safe to try.</b> Nothing changes until you press a button, and ⌘Z / Ctrl+Z undoes it.</li>
+          </ul>
+        </div>
+        <p class="about-foot" id="aboutVersion"></p>
+      </div>
+    </section>
+
   </main>
 
   <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
@@ -568,7 +596,7 @@ html.figma-dark .toast.error { background: #D9473E; color: #fff; }
     installing: false
   };
 
-  var TITLES = { renamer: 'Layer Renamer', flatten: 'Flatten & Merge', drive: 'Google Drive Links' };
+  var TITLES = { renamer: 'Layer Renamer', flatten: 'Flatten & Merge', drive: 'Google Drive Links', about: 'About' };
   var PARENT = { renamer: 'home', flatten: 'home', drive: 'home' };
 
   // ── toast / notes ───────────────────────────────────────────────────────
@@ -621,6 +649,7 @@ html.figma-dark .toast.error { background: #D9473E; color: #fff; }
     $('title').hidden = home;
     $('title').textContent = TITLES[screen] || '';
     $('selPill').hidden = !(screen === 'renamer' || screen === 'flatten');     // only where the selection is what gets changed
+    $('openAbout').hidden = !home;                                              // About is reached from Home only
     $('toast').hidden = true;
     if (screen === 'renamer') enterRenamer();
     if (screen === 'flatten') { state.flatten.result = null; refreshSummary(); }
@@ -1185,6 +1214,7 @@ html.figma-dark .toast.error { background: #D9473E; color: #fff; }
   function bind() {
     $('back').addEventListener('click', goBack);
     $('updCheck').addEventListener('click', function () { checkUpdates('updCheck'); });
+    $('openAbout').addEventListener('click', function () { go('about'); });
     var tools = document.querySelectorAll('[data-go]');
     for (var i = 0; i < tools.length; i++) {
       tools[i].addEventListener('click', function (e) { go(e.currentTarget.getAttribute('data-go')); });
@@ -1270,6 +1300,7 @@ html.figma-dark .toast.error { background: #D9473E; color: #fff; }
       state.settings = data.settings.renamer;
       state.selection = data.selection;
       $('version').textContent = 'v' + data.version;
+      $('aboutVersion').textContent = 'UtilityKit v' + data.version;
       state.version = data.version;
       state.install = data.install || null;
       renderSelection();

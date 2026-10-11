@@ -20,6 +20,7 @@
     </div>
     <h1 class="bar-title" id="title" hidden></h1>
     <div class="pill" id="selPill" title="Layers selected on the canvas" hidden><span class="dot"></span><span id="selText">0 selected</span></div>
+    <button class="icon-btn bar-end" id="openAbout" type="button" aria-label="About UtilityKit" title="About"><i data-icon="info"></i></button>
   </header>
 
   <main class="main">
@@ -151,6 +152,27 @@
             <p><b>It can’t</b> see inside Google Drive. It doesn’t check that a link works or who has access, and it never uploads, downloads or syncs files. The plugin never contacts Google.</p>
           </div>
         </details>
+      </div>
+    </section>
+
+    <!-- ───────────── About ───────────── -->
+    <section class="screen" data-screen="about" hidden>
+      <div class="scroll">
+        <div class="card about">
+          <h2>What it is</h2>
+          <p>UtilityKit is a small Figma plugin for the everyday chores that slow design work down: naming frames, merging layers for print, and finding the project’s Google Drive link.</p>
+        </div>
+        <div class="card about">
+          <h2>Why it was made</h2>
+          <p>These jobs are simple, but doing them by hand takes time and comes out a little different for each person. UtilityKit does each one in a click, the same way every time.</p>
+          <ul>
+            <li><b>Less typing.</b> It reads the page name, frame size and client from the file instead of asking.</li>
+            <li><b>The same names for everyone.</b> Frames follow the team naming guideline.</li>
+            <li><b>One job, one button.</b> Nothing to set up and nothing to learn.</li>
+            <li><b>Safe to try.</b> Nothing changes until you press a button, and ⌘Z / Ctrl+Z undoes it.</li>
+          </ul>
+        </div>
+        <p class="about-foot" id="aboutVersion"></p>
       </div>
     </section>
 
