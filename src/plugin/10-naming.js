@@ -24,7 +24,7 @@ UK.naming = (function () {
       pageType: '',             // '' = read it from the Figma page name (Web and Marketing alike)
       phase: '',                // Web: '' | 'Wireframes' | 'Mockups'
       client: '',
-      deliverable: '',          // Marketing, optional: e.g. "MetaAds"
+      deliverable: '',          // Marketing, optional: e.g. "MetaAds". Typed per session, never remembered
       versions: ''              // '' = automatic; otherwise what the designer typed: "2", "1r1", "r2", "1, 2, 3"
     };
   }
@@ -55,13 +55,15 @@ UK.naming = (function () {
 
   /**
    * The settings worth remembering between sessions. One-off choices (version,
-   * revision, page override) are not, and neither is the client: a client
-   * belongs to a file, so it must never follow the designer into another one.
+   * revision, page override, the optional deliverable) are not, and neither is
+   * the client: a client belongs to a file, so it must never follow the designer
+   * into another one.
    */
   function persistable(raw) {
     var s = normalize(raw), d = defaults();
     s.client = d.client;
     s.pageType = d.pageType;
+    s.deliverable = d.deliverable;
     s.versions = d.versions;
     return s;
   }

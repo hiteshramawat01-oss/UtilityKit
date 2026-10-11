@@ -8,7 +8,7 @@
  * Syntax is kept conservative on purpose (no optional chaining, no object
  * spread) because Figma's sandbox is stricter than a browser.
  */
-var UK = { VERSION: '1.9.0' };   // filled in from version.json by build.js
+var UK = { VERSION: '1.9.1' };   // filled in from version.json by build.js
 
 /** An error whose message is safe and useful to show to the designer. */
 UK.userError = function (message, code) {
@@ -83,7 +83,7 @@ function __ukCompile(source) {
 
 var UKLoader = (typeof UKLoader === 'object' && UKLoader) || (function () {
   var KEY = 'utilitykit.update.v1';
-  var BUNDLED = '1.9.0';          // the version in the plugin folder
+  var BUNDLED = '1.9.1';          // the version in the plugin folder
   var MIN_CHARS = 1000;
   var MAX_CHARS = 1500000;
 
@@ -245,7 +245,7 @@ UK.naming = (function () {
       pageType: '',             // '' = read it from the Figma page name (Web and Marketing alike)
       phase: '',                // Web: '' | 'Wireframes' | 'Mockups'
       client: '',
-      deliverable: '',          // Marketing, optional: e.g. "MetaAds"
+      deliverable: '',          // Marketing, optional: e.g. "MetaAds". Typed per session, never remembered
       versions: ''              // '' = automatic; otherwise what the designer typed: "2", "1r1", "r2", "1, 2, 3"
     };
   }
@@ -276,13 +276,15 @@ UK.naming = (function () {
 
   /**
    * The settings worth remembering between sessions. One-off choices (version,
-   * revision, page override) are not, and neither is the client: a client
-   * belongs to a file, so it must never follow the designer into another one.
+   * revision, page override, the optional deliverable) are not, and neither is
+   * the client: a client belongs to a file, so it must never follow the designer
+   * into another one.
    */
   function persistable(raw) {
     var s = normalize(raw), d = defaults();
     s.client = d.client;
     s.pageType = d.pageType;
+    s.deliverable = d.deliverable;
     s.versions = d.versions;
     return s;
   }
@@ -1596,7 +1598,7 @@ UK.updates = (function () {
 (function () {
   var STORAGE_KEY = 'utilitykit.settings.v1';   // per designer, across files
   var FILE_KEY = 'utilitykit.file.v1';          // per file: client and the other project-level naming choices
-  var FILE_FIELDS = ['client', 'phase', 'mode', 'deliverable'];
+  var FILE_FIELDS = ['client', 'phase', 'mode'];
   var SIZE = { width: 360, height: 600, minW: 300, maxW: 560, minH: 440, maxH: 900 };
 
   function readFileData() {
@@ -1611,7 +1613,8 @@ UK.updates = (function () {
     var stored = null;
     try { stored = await figma.clientStorage.getAsync(STORAGE_KEY); } catch (e) { stored = null; }
     stored = stored && typeof stored === 'object' ? stored : {};
-    var renamer = stored.renamer && typeof stored.renamer === 'object' ? stored.renamer : {};
+    // Only what is meant to be remembered is read back, whatever an older version stored (a deliverable, for one).
+    var renamer = UK.naming.persistable(stored.renamer && typeof stored.renamer === 'object' ? stored.renamer : {});
     var file = readFileData();
     var merged = {}, key;
     for (key in renamer) { if (Object.prototype.hasOwnProperty.call(renamer, key)) merged[key] = renamer[key]; }

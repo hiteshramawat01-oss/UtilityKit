@@ -417,7 +417,8 @@ test('settings: saved per designer; one-off choices and the client are not carri
   await call('settings.save', { renamer: web({ client: 'Typed In Another File', mode: 'marketing', deliverable: 'MetaAds', pageType: 'Override', versions: '4r2' }), flatten: { scale: 3 } });
   init = await call('init');
   const r = init.data.settings.renamer;
-  assert.deepEqual([r.mode, r.deliverable], ['marketing', 'MetaAds']);
+  assert.equal(r.mode, 'marketing');
+  assert.equal(r.deliverable, '', 'the optional deliverable is typed per session and never remembered');
   assert.equal(r.client, '', 'a client never follows the designer into another file');
   assert.deepEqual([r.pageType, r.versions], ['', ''], 'one-off choices start fresh');
   assert.equal(init.data.settings.flatten, undefined, 'Flatten & Merge has nothing to remember');
@@ -427,7 +428,7 @@ test('settings: saved per designer; one-off choices and the client are not carri
   env.select([a]);
   const settings = web({ client: 'Acme', phase: 'Wireframes' });
   await call('rename.run', { settings });
-  assert.deepEqual(JSON.parse(env.figma.root.getPluginData('utilitykit.file.v1')), { client: 'Acme', phase: 'Wireframes', mode: 'web', deliverable: '' });
+  assert.deepEqual(JSON.parse(env.figma.root.getPluginData('utilitykit.file.v1')), { client: 'Acme', phase: 'Wireframes', mode: 'web' });
 
   // this file restores its own client and phase whatever was used elsewhere since
   await call('settings.save', { renamer: web({ client: 'Other Client', phase: 'Mockups' }) });
@@ -490,7 +491,7 @@ test('client: asked once, saved in the file, shared by Web and Marketing', async
   // changing it keeps the other things the file remembers
   await call('rename.run', { settings: web({ client, phase: 'Mockups' }) });
   await call('client.set', { client: 'New Name' });
-  assert.deepEqual(JSON.parse(env.figma.root.getPluginData('utilitykit.file.v1')), { client: 'New Name', phase: 'Mockups', mode: 'web', deliverable: '' });
+  assert.deepEqual(JSON.parse(env.figma.root.getPluginData('utilitykit.file.v1')), { client: 'New Name', phase: 'Mockups', mode: 'web' });
 });
 
 test('rename in one click: names and applies the current selection', async () => {
@@ -517,22 +518,44 @@ test('rename in one click: names and applies the current selection', async () =>
   assert.deepEqual([b.name, a.name, m.name].map((n) => n.split('_').pop()), ['V1R1', 'V2R1', 'V1R1']);
 });
 
+test('the deliverable is never remembered: not by the designer\'s settings, not by the file, not from older versions', async () => {
+  const { env, call, frame } = scene('Black Friday');
+  const a = frame('a', 0, 1080, 1080);
+  env.select([a]);
+  // typed and used for a rename in this session
+  const res = await call('rename.run', { settings: mkt({ deliverable: 'Google Ads' }) });
+  assert.equal(res.ok, true);
+  assert.equal(a.name, '1080x1080_GoogleAds_BlackFriday_Acme_V1');
+  assert.equal(JSON.parse(env.storage['utilitykit.settings.v1']).renamer.deliverable, '');
+  assert.deepEqual(JSON.parse(env.figma.root.getPluginData('utilitykit.file.v1')), { client: 'Acme', phase: '', mode: 'marketing' });
+  // next session: Marketing is remembered, the deliverable box is empty
+  let init = await call('init');
+  assert.deepEqual([init.data.settings.renamer.mode, init.data.settings.renamer.deliverable], ['marketing', '']);
+
+  // what v1.9.0 and earlier left behind is ignored
+  env.storage['utilitykit.settings.v1'] = JSON.stringify({ renamer: { mode: 'web', phase: 'Wireframes', deliverable: 'GoogleAds', task: 'x', variation: 'B', includeSize: false } });
+  env.figma.root.setPluginData('utilitykit.file.v1', JSON.stringify({ client: 'Acme', phase: '', mode: 'marketing', deliverable: 'GoogleAds', task: 'old' }));
+  init = await call('init');
+  assert.equal(init.data.settings.renamer.deliverable, '');
+  assert.deepEqual([init.data.settings.renamer.client, init.data.settings.renamer.mode, init.data.settings.renamer.phase], ['Acme', 'marketing', ''], 'the rest is still read');
+});
+
 test('settings: reset puts this designer back to defaults and leaves the file alone', async () => {
   const { env, call, UK, frame } = scene();
   const a = frame('a', 0, 1600);
   env.select([a]);
-  const settings = web({ client: 'Acme', deliverable: 'Email Banner' });
+  const settings = web({ client: 'Acme' });
   const pre = await call('rename.preview', { settings });
   await call('rename.apply', { settings, expected: pre.data.expected });
   let init = await call('init');
-  assert.equal(init.data.settings.renamer.deliverable, 'Email Banner');
+  assert.equal(JSON.parse(env.storage['utilitykit.settings.v1']).renamer.phase, 'Mockups');
 
   const res = await call('settings.reset');
   assert.equal(JSON.stringify(res.data.renamer), JSON.stringify(UK.naming.defaults()));
   assert.equal(a.name, 'Homepage_Desktop_Mockups_Acme_V1', 'reset never touches layers');
 
   init = await call('init');
-  assert.equal(init.data.settings.renamer.deliverable, 'Email Banner', 'the deliverable is one of the choices the file itself remembers');
-  assert.equal(JSON.parse(env.storage['utilitykit.settings.v1']).renamer.deliverable, '', 'but this designer\'s own saved choices are back to defaults');
+  assert.equal(JSON.parse(env.storage['utilitykit.settings.v1']).renamer.phase, '', 'this designer\'s own saved choices are back to defaults');
+  assert.equal(init.data.settings.renamer.phase, 'Mockups', 'the file still remembers its own design phase');
   assert.equal(init.data.settings.renamer.client, 'Acme', 'the file still remembers its own client');
 });

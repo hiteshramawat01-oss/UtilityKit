@@ -1,10 +1,8 @@
 {
-  "version": "1.9.0",
+  "version": "1.9.1",
   "released": "2026-10-11",
   "notes": [
-    "Layer Renamer, Marketing: now looks and works like Web. The page name is read from the Figma page.",
-    "The size is always added, read from each frame. Deliverable is optional. Specific task and Variation are gone.",
-    "Home: Check for updates is back in the footer. The Settings page and icon are removed."
+    "Layer Renamer, Marketing: the Deliverable box starts empty every time. What you type is used for that session only and is not remembered."
   ],
   "download": "https://github.com/hiteshramawat01-oss/UtilityKit/archive/refs/heads/main.zip",
   "page": "https://github.com/hiteshramawat01-oss/UtilityKit"

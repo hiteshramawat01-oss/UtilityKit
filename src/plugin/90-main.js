@@ -6,7 +6,7 @@
 (function () {
   var STORAGE_KEY = 'utilitykit.settings.v1';   // per designer, across files
   var FILE_KEY = 'utilitykit.file.v1';          // per file: client and the other project-level naming choices
-  var FILE_FIELDS = ['client', 'phase', 'mode', 'deliverable'];
+  var FILE_FIELDS = ['client', 'phase', 'mode'];
   var SIZE = { width: 360, height: 600, minW: 300, maxW: 560, minH: 440, maxH: 900 };
 
   function readFileData() {
@@ -21,7 +21,8 @@
     var stored = null;
     try { stored = await figma.clientStorage.getAsync(STORAGE_KEY); } catch (e) { stored = null; }
     stored = stored && typeof stored === 'object' ? stored : {};
-    var renamer = stored.renamer && typeof stored.renamer === 'object' ? stored.renamer : {};
+    // Only what is meant to be remembered is read back, whatever an older version stored (a deliverable, for one).
+    var renamer = UK.naming.persistable(stored.renamer && typeof stored.renamer === 'object' ? stored.renamer : {});
     var file = readFileData();
     var merged = {}, key;
     for (key in renamer) { if (Object.prototype.hasOwnProperty.call(renamer, key)) merged[key] = renamer[key]; }

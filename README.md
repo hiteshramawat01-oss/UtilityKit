@@ -34,7 +34,7 @@ The plugin fills in most of it:
 - **Size** (Marketing) — the frame's size, such as `1080x1080`.
 - **Version** — frames with the same name are numbered left to right: `V1`, `V2`, `V3`.
 
-You choose the **Design phase** (Web) and can type a **Deliverable** (Marketing). Both are optional.
+You choose the **Design phase** (Web) and can type a **Deliverable** (Marketing). Both are optional. The Deliverable box starts empty each time you open the plugin.
 
 To set versions yourself, type in the **Version** box:
 
