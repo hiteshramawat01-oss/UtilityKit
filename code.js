@@ -8,7 +8,7 @@
  * Syntax is kept conservative on purpose (no optional chaining, no object
  * spread) because Figma's sandbox is stricter than a browser.
  */
-var UK = { VERSION: '1.6.0' };   // filled in from version.json by build.js
+var UK = { VERSION: '1.7.0' };   // filled in from version.json by build.js
 
 /** An error whose message is safe and useful to show to the designer. */
 UK.userError = function (message, code) {
@@ -83,7 +83,7 @@ function __ukCompile(source) {
 
 var UKLoader = (typeof UKLoader === 'object' && UKLoader) || (function () {
   var KEY = 'utilitykit.update.v1';
-  var BUNDLED = '1.6.0';          // the version in the plugin folder
+  var BUNDLED = '1.7.0';          // the version in the plugin folder
   var MIN_CHARS = 1000;
   var MAX_CHARS = 1500000;
 
@@ -754,21 +754,22 @@ UK.renamer = (function () {
 
 // ---- 30-flatten.js ----
 /*
- * Flatten & Merge — turns the selected layers into one image named "[Print]".
+ * Flatten & Merge — turns the selected layers into one image named "[Print]",
+ * in the same place: the image takes the layers' spot and the layers are removed.
  *
  * Rules this module keeps:
- *  - Originals are never edited, moved or removed. Rendering works on temporary
- *    copies that are deleted again, even if something fails.
- *  - The image is made at 1x (the layers' own pixel size) and placed beside the
- *    originals.
+ *  - The image is made and put in place first. Only then are the layers removed,
+ *    so a failure on the way leaves the file exactly as it was.
+ *  - Rendering works on temporary copies that are deleted again, even on failure.
+ *  - The image is made at 1x (the layers' own pixel size).
  *  - Figma rejects image fills larger than 4096 px on a side, so a larger result
  *    is split into seamless pieces in one group rather than being shrunk.
+ *  - One undo (Cmd/Ctrl+Z) brings the layers back.
  */
 UK.flatten = (function () {
   var MAX_IMAGE = 4096;
   var MAX_TILES = 36;
   var SCALE = 1;
-  var GAP = 80;
   var RESULT_NAME = '[Print]';
   var TEMP_NAME = 'UtilityKit temp (safe to delete)';
 
@@ -791,9 +792,19 @@ UK.flatten = (function () {
     return out ? { x: out.x, y: out.y, width: out.r - out.x, height: out.b - out.y } : null;
   }
 
-  /** '' when the node can be flattened, otherwise why not. */
+  function insideInstance(node) {
+    var n = node ? node.parent : null;
+    while (n) {
+      if (n.type === 'INSTANCE') return true;
+      n = n.parent;
+    }
+    return false;
+  }
+
+  /** '' when the node can be merged, otherwise why not. */
   function problemWith(node) {
     if (!node || node.removed) return 'Layer no longer exists';
+    if (insideInstance(node)) return 'Inside an instance, which can’t be changed';
     if (typeof node.exportAsync !== 'function') return 'This layer type can’t be exported';
     if (node.type === 'SLICE') return 'Slices have nothing of their own to flatten';
     if (node.visible === false) return 'Layer is hidden';
@@ -870,10 +881,37 @@ UK.flatten = (function () {
     return keyed.map(function (k) { return k.node; });
   }
 
-  function topLevel(node) {
-    var n = node;
-    while (n.parent && n.parent.type !== 'PAGE' && n.parent.type !== 'DOCUMENT') n = n.parent;
-    return n;
+  function invert(m) {
+    var a = m[0][0], c = m[0][1], e = m[0][2], b = m[1][0], d = m[1][1], f = m[1][2];
+    var det = a * d - b * c;
+    if (!det) return [[1, 0, -e], [0, 1, -f]];
+    return [
+      [d / det, -c / det, (c * f - d * e) / det],
+      [-b / det, a / det, (b * e - a * f) / det]
+    ];
+  }
+
+  function multiply(m, n) {
+    return [
+      [m[0][0] * n[0][0] + m[0][1] * n[1][0], m[0][0] * n[0][1] + m[0][1] * n[1][1], m[0][0] * n[0][2] + m[0][1] * n[1][2] + m[0][2]],
+      [m[1][0] * n[0][0] + m[1][1] * n[1][0], m[1][0] * n[0][1] + m[1][1] * n[1][1], m[1][0] * n[0][2] + m[1][1] * n[1][2] + m[1][2]]
+    ];
+  }
+
+  /** Puts `result` into `parent` at `index`, keeping its position on the canvas. Throws if the parent refuses it. */
+  function moveInto(result, parent, index, at) {
+    parent.insertChild(index, result);
+    try {
+      // Layers inside a group are positioned relative to the nearest frame around the group.
+      var container = parent;
+      while (container && (container.type === 'GROUP' || container.type === 'BOOLEAN_OPERATION')) container = container.parent;
+      if (container && container.type !== 'PAGE' && container.absoluteTransform) {
+        result.relativeTransform = multiply(invert(container.absoluteTransform), [[1, 0, at.x], [0, 1, at.y]]);
+      } else {
+        result.x = at.x;
+        result.y = at.y;
+      }
+    } catch (e) { /* auto layout parents position their children themselves */ }
   }
 
   function imageRect(bytes, box, name) {
@@ -966,7 +1004,7 @@ UK.flatten = (function () {
     return { node: group, tiles: rects.length, box: box };
   }
 
-  /** Merges the selected layers into one image named "[Print]", placed beside them. */
+  /** Merges the selected layers into one image named "[Print]" that takes their place. */
   async function run() {
     var selection = figma.currentPage.selection.slice();
     if (!selection.length) throw UK.userError('Select at least one layer to merge.');
@@ -976,10 +1014,10 @@ UK.flatten = (function () {
     }
     var usable = inPaintOrder(parts.usable);
 
-    // "Beside the originals": clear of every artboard the selection lives in.
-    var selectionBox = union(usable.map(boundsOf));
-    var anchors = union(usable.map(function (n) { return boundsOf(topLevel(n)) || boundsOf(n); }));
-    var shiftX = (anchors.x + anchors.width + GAP) - selectionBox.x;
+    // The image goes where the top-most selected layer sits: same parent, same place in the layer list.
+    var top = usable[usable.length - 1];
+    var parent = top.parent;
+    var index = parent ? parent.children.indexOf(top) + 1 : -1;
 
     var out;
     try {
@@ -989,17 +1027,34 @@ UK.flatten = (function () {
       var why = UK.describeError(err).replace(/[.\s]*$/, '.');
       throw UK.userError('The image couldn’t be made — ' + why + ' Your layers were not changed.');
     }
-    out.node.x = out.node.x + shiftX;
 
-    try { figma.currentPage.selection = [out.node]; } catch (e) { /* selecting it is a convenience */ }
-    try { figma.commitUndo(); } catch (e2) { /* older runtimes */ }
-    UK.notify(usable.length > 1 ? 'Merged ' + usable.length + ' layers into ' + RESULT_NAME : 'Made ' + RESULT_NAME + ' from 1 layer');
+    // In place first; the layers are only removed once the image is where they were.
+    try {
+      if (!parent || index < 1) throw new Error('The layers have no parent to hold the image');
+      moveInto(out.node, parent, index, { x: out.box.x, y: out.box.y });
+    } catch (err2) {
+      try { out.node.remove(); } catch (e) { /* already gone */ }
+      var reason = UK.describeError(err2).replace(/[.\s]*$/, '.');
+      throw UK.userError('The image couldn’t be put in place of your layers — ' + reason + ' Your layers were not changed.');
+    }
+
+    var removed = 0, kept = [];
+    for (var i = 0; i < usable.length; i++) {
+      try { usable[i].remove(); removed++; } catch (e2) { kept.push({ name: usable[i].name, reason: UK.describeError(e2) }); }
+    }
+
+    try { figma.currentPage.selection = [out.node]; } catch (e3) { /* selecting it is a convenience */ }
+    try { figma.commitUndo(); } catch (e4) { /* older runtimes */ }
+    UK.notify(usable.length > 1 ? 'Merged ' + usable.length + ' layers into ' + RESULT_NAME : 'Turned 1 layer into ' + RESULT_NAME);
 
     return {
       name: RESULT_NAME,
       created: [out.node.id],
       selectionKey: UK.selectionKey(figma.currentPage.selection),
       sourceCount: usable.length,
+      removed: removed,
+      kept: kept.slice(0, 20),
+      keptCount: kept.length,
       tiles: out.tiles,
       tiled: out.tiles > 1,
       skipped: parts.skipped.slice(0, 20),
@@ -1007,7 +1062,7 @@ UK.flatten = (function () {
     };
   }
 
-  return { MAX_IMAGE: MAX_IMAGE, RESULT_NAME: RESULT_NAME, summary: summary, run: run, tilePlan: tilePlan };
+  return { MAX_IMAGE: MAX_IMAGE, RESULT_NAME: RESULT_NAME, summary: summary, run: run, tilePlan: tilePlan, invert: invert, multiply: multiply };
 })();
 
 // ---- 40-drive.js ----

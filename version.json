@@ -1,10 +1,9 @@
 {
-  "version": "1.6.0",
+  "version": "1.7.0",
   "released": "2026-10-11",
   "notes": [
-    "Layer Renamer: one Version box replaces the two dropdowns. Type 1 or 1r2 for every frame, or 1, 2, 3 for one each.",
-    "Layer Renamer: the Resize option is gone. Renaming never changes a frame's size.",
-    "Flatten & Merge: one button, Merge into one. The image is named [Print] and your layers are never changed."
+    "Flatten & Merge: the image now takes the place of your layers, exactly where they are. No new layer beside the artboard.",
+    "The image is named [Print]. Press ⌘Z / Ctrl+Z to get the layers back."
   ],
   "download": "https://github.com/hiteshramawat01-oss/UtilityKit/archive/refs/heads/main.zip",
   "page": "https://github.com/hiteshramawat01-oss/UtilityKit"

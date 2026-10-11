@@ -43,7 +43,7 @@ def run():
         ev = page.evaluate
 
         # ── Home ──
-        expect(ui.locator("#version")).to_have_text("v1.6.0")
+        expect(ui.locator("#version")).to_have_text("v1.7.0")
         expect(ui.locator("#selPill")).to_be_hidden()                # no selection count on Home
         expect(ui.locator("#updCheck")).to_have_count(0)             # the footer is just the version…
         vbox = ui.locator("#version").bounding_box()
@@ -57,7 +57,7 @@ def run():
         expect(ui.locator("#title")).to_have_text("Settings")
         expect(ui.locator("#openSettings")).to_be_hidden()
         expect(ui.locator("#selPill")).to_be_hidden()
-        expect(ui.locator("#stVersion")).to_have_text("Installed: v1.6.0")
+        expect(ui.locator("#stVersion")).to_have_text("Installed: v1.7.0")
         expect(ui.locator("#stRemove")).to_be_hidden()
         ui.locator("#stCheck").click()                               # repository has no version.json / is private
         expect(ui.locator("#toast")).to_contain_text("may be private")
@@ -68,14 +68,14 @@ def run():
         expect(ui.locator("#toast")).to_contain_text("Couldn’t reach GitHub")
         ev("window.__versionJson = JSON.stringify({ version: UK.VERSION })")
         ui.locator("#stCheck").click()
-        expect(ui.locator("#toast")).to_have_text("You’re up to date (v1.6.0).")
+        expect(ui.locator("#toast")).to_have_text("You’re up to date (v1.7.0).")
         expect(ui.locator("#stUpdBox")).to_be_hidden()
         ev("""window.__versionJson = JSON.stringify({ version: '9.9.0', released: '2026-11-02',
               notes: ['New: Export presets.', 'Fix: renaming inside instances.'],
               download: 'https://evil.example.com/malware.zip' })""")
         ui.locator("#stCheck").click()
         expect(ui.locator("#stUpdBox")).to_contain_text("Version 9.9.0 is available")
-        expect(ui.locator("#stUpdBox")).to_contain_text("You have v1.6.0. Released 2026-11-02.")
+        expect(ui.locator("#stUpdBox")).to_contain_text("You have v1.7.0. Released 2026-11-02.")
         expect(ui.locator("#stUpdBox li")).to_have_count(2)
         expect(ui.locator("#stCheck")).to_have_text("Check for updates")
         expect(ui.locator('#stUpdBox [data-act="install"]')).to_have_text("Update now")
@@ -249,7 +249,7 @@ def run():
         saved_file = ev("figma.root.getPluginData('utilitykit.file.v1')")
         ev("figma.root.setPluginData('utilitykit.file.v1', '')")
         ev("launch()")
-        expect(ui.locator("#version")).to_have_text("v1.6.0")
+        expect(ui.locator("#version")).to_have_text("v1.7.0")
         ui.locator('[data-go="renamer"]').click()
         expect(ui.locator("#rnForm")).to_be_visible()
         expect(ui.locator("#rnAsk")).to_be_hidden()
@@ -257,7 +257,7 @@ def run():
         ui.locator("#back").click()
         ev("(v) => figma.root.setPluginData('utilitykit.file.v1', v)", saved_file)
         ev("launch()")
-        expect(ui.locator("#version")).to_have_text("v1.6.0")
+        expect(ui.locator("#version")).to_have_text("v1.7.0")
 
         # ── Settings: reset ──
         ui.locator("#openSettings").click()
@@ -277,29 +277,32 @@ def run():
         expect(ui.locator("#rnAsk")).to_be_hidden()
         ui.locator("#back").click()
 
-        # ── Flatten & Merge: one action, the result is named [Print] ──
-        ev("env.select([demo.a, demo.b, demo.c])")
+        # ── Flatten & Merge: one action; the layers become [Print], in place ──
+        ev("env.select([demo.a, demo.b])")
         ui.locator('[data-go="flatten"]').click()
         expect(ui.locator('section[data-screen="flatten"] .btn')).to_have_count(1)     # one button, no options
         expect(ui.locator("#flMerge")).to_have_text("Merge into one")
         expect(ui.locator("#flEach, #flScale, #flConfirm, input[name=flOriginals]")).to_have_count(0)
         expect(ui.locator('section[data-screen="flatten"]')).not_to_contain_text("Options")
-        expect(ui.locator("#flSummary")).to_contain_text("1,440 × 2,400 px")
+        expect(ui.locator("#flSummary")).to_contain_text("1,440 × 1,600 px")
         expect(ui.locator("#flSummary")).to_contain_text("[Print]")
+        expect(ui.locator("#flSummary")).to_contain_text("takes the place of these layers")
         shot("06-flatten")
         before = ev("env.all().length")
-        names = ev("[demo.a.name, demo.b.name, demo.c.name]")
+        top_level = ev("figma.currentPage.children.length")
         ui.locator("#flMerge").click()
-        expect(ui.locator("#flBanner .note.success")).to_contain_text("Merged 3 layers into [Print]")
-        expect(ui.locator("#flBanner .note.success")).to_contain_text("Your layers were not changed")
-        assert ev("env.all().length") == before + 1, "one image, nothing else added"
-        assert ev("[figma.currentPage.selection[0].name, figma.currentPage.selection[0].type]") == ["[Print]", "RECTANGLE"]
-        assert ev("[figma.currentPage.selection[0].width, figma.currentPage.selection[0].height]") == [1440, 2400]
-        assert ev("figma.currentPage.selection[0].x") == 1440 + 80, "beside the artboard"
+        expect(ui.locator("#flBanner .note.success")).to_contain_text("Merged 2 layers into [Print]")
+        expect(ui.locator("#flBanner .note.success")).to_contain_text("It is where the layers were")
+        assert ev("env.all().length") == before - 1, "two layers out, one image in"
+        assert ev("figma.currentPage.children.length") == top_level, "no new layer beside the artboard"
+        assert ev("[demo.a.removed, demo.b.removed, demo.c.removed]") == [True, True, False]
+        assert ev("demo.art.children.map(c => c.name)") == ["[Print]", "About - Design - Acme Corp - V1"]   # same spot in the layer list
+        sel = "figma.currentPage.selection[0]"
+        assert ev("[%s.name, %s.type, %s.parent === demo.art]" % (sel, sel, sel)) == ["[Print]", "RECTANGLE", True]
+        assert ev("[%s.x, %s.y, %s.width, %s.height]" % (sel, sel, sel, sel)) == [0, 0, 1440, 1600]          # same place, same size
         assert ev("env.log.exports[env.log.exports.length - 1].scale") == 1
-        assert ev("[demo.a.removed, demo.b.removed, demo.c.removed]") == [False, False, False]
-        assert ev("[demo.a.name, demo.b.name, demo.c.name]") == names
-        # the new image is what is selected now: the screen shows the result, not an offer to merge it again
+        assert ev("env.log.undo") >= 1
+        # the image is what is selected now: the screen shows the result, not an offer to merge it again
         expect(ui.locator("#selText")).to_have_text("1 selected")
         expect(ui.locator("#flSummary")).to_be_hidden()
         expect(ui.locator("#flMerge")).to_be_disabled()
@@ -308,20 +311,22 @@ def run():
         ui.locator("#flBanner .btn").click()
         page.wait_for_function("env.log.zoomed && env.log.zoomed.length === 1")
 
-        # too big for one Figma image: pieces that fit together, in a [Print] group
-        ev("env.select([demo.d1, demo.d2, demo.m1])")
+        # too big for one Figma image: pieces that fit together, in a [Print] group, still in place
+        ev("window.longPage = env.add('FRAME', { name: 'Long page', x: 9000, y: 100, width: 1600, height: 9000 }); env.select([longPage])")
         expect(ui.locator("#flBanner .note")).to_have_count(0)      # the old result message is gone
         expect(ui.locator("#flMerge")).to_be_enabled()
-        expect(ui.locator("#flSummary")).to_contain_text("4,320 × 3,400 px")
-        expect(ui.locator("#flSummary .note.info")).to_contain_text("2 pieces that fit together exactly")
+        expect(ui.locator("#flSummary")).to_contain_text("1,600 × 9,000 px")
+        expect(ui.locator("#flSummary")).to_contain_text("takes the place of this layer")
+        expect(ui.locator("#flSummary .note.info")).to_contain_text("3 pieces that fit together exactly")
         shot("08-flatten-large")
         ui.locator("#flMerge").click()
-        expect(ui.locator("#flBanner .note.success")).to_contain_text("Merged 3 layers into [Print]")
-        expect(ui.locator("#flBanner .note.success")).to_contain_text("2 pieces")
-        assert ev("[figma.currentPage.selection[0].name, figma.currentPage.selection[0].type]") == ["[Print]", "GROUP"]
-        assert ev("figma.currentPage.selection[0].children.map(c => c.name)") == ["Part 1", "Part 2"]
-        assert ev("[demo.d1.removed, demo.d2.removed, demo.m1.removed]") == [False, False, False]
+        expect(ui.locator("#flBanner .note.success")).to_contain_text("Turned 1 layer into [Print]")
+        expect(ui.locator("#flBanner .note.success")).to_contain_text("3 pieces")
+        assert ev("[%s.name, %s.type, %s.x, %s.y]" % (sel, sel, sel, sel)) == ["[Print]", "GROUP", 9000, 100]
+        assert ev("%s.children.map(c => c.name)" % sel) == ["Part 1", "Part 2", "Part 3"]
+        assert ev("longPage.removed") is True
         assert ev("env.all().filter(n => /UtilityKit temp/.test(n.name)).length") == 0
+        assert ev("[demo.d1.removed, demo.d2.removed, demo.m1.removed, demo.c.removed]") == [False, False, False, False]
 
         # nothing selected
         ev("env.select([])")
@@ -396,7 +401,7 @@ def run():
         expect(ui.locator("#toast")).to_contain_text("still being published")
         expect(ui.locator('#stUpdBox [data-act="install"]')).to_have_text("Update now")
         assert saved() is None
-        expect(ui.locator("#stVersion")).to_have_text("Installed: v1.6.0")
+        expect(ui.locator("#stVersion")).to_have_text("Installed: v1.7.0")
 
         # the real thing
         ev(load_release, release("9.9.0", "UPDATED BUILD 9.9.0"))
@@ -425,13 +430,13 @@ def run():
         expect(ui.locator("#version")).to_have_text("v9.9.0")
         ui.locator("#openSettings").click()
         expect(ui.locator("#stVersion")).to_have_text("Installed: v9.9.0")
-        expect(ui.locator("#stSource")).to_contain_text("The plugin folder still holds v1.6.0")
-        expect(ui.locator("#stRemove")).to_have_text("Go back to v1.6.0")
+        expect(ui.locator("#stSource")).to_contain_text("The plugin folder still holds v1.7.0")
+        expect(ui.locator("#stRemove")).to_have_text("Go back to v1.7.0")
         shot("16-settings-updated")
 
         # going back
         ui.locator("#stRemove").click()
-        expect(ui.locator("#version")).to_have_text("v1.6.0")
+        expect(ui.locator("#version")).to_have_text("v1.7.0")
         expect(ui.locator(".lede")).to_have_text("Everyday design utilities in one place.")
         page.wait_for_function("env.storage['%s'] === undefined" % KEY)
 
@@ -443,7 +448,7 @@ def run():
         page.wait_for_function("JSON.parse(env.storage['%s']).pending === false" % KEY)
         ev("(() => { const s = JSON.parse(env.storage['%s']); s.pending = true; env.storage['%s'] = JSON.stringify(s); })()" % (KEY, KEY))
         ev("launch()")
-        expect(ui.locator("#version")).to_have_text("v1.6.0")
+        expect(ui.locator("#version")).to_have_text("v1.7.0")
         expect(ui.locator("#toast")).to_contain_text("Update 9.9.0 didn’t start properly")
         assert saved() is None
 

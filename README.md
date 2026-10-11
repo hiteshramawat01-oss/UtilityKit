@@ -1,6 +1,6 @@
 # UtilityKit
 
-A Figma plugin · v1.6.0
+A Figma plugin · v1.7.0
 
 Three everyday helpers in one small window:
 
@@ -90,7 +90,7 @@ Good to know:
 
 ## Flatten & Merge
 
-Merges the layers you select into one picture, named `[Print]`.
+Turns the layers you select into one picture, named `[Print]`, in the same place.
 
 1. Select one or more layers.
 2. Press **Merge into one**.
@@ -99,12 +99,12 @@ That's it. There is nothing to set.
 
 Good to know:
 
-- **Your layers are never changed or removed.** The picture appears to the right of your artboard and is selected, ready to use.
-- The picture is the same size as your layers (1×).
-- Shadows and other effects are included.
+- **The picture takes the place of your layers.** It sits exactly where they were, in the same frame and the same spot in the layer list. The layers themselves are removed. No extra layer is added anywhere else.
+- **Changed your mind?** Press ⌘Z (Mac) or Ctrl+Z (Windows) and the layers come back.
+- The picture is the same size as your layers (1×). Shadows and other effects are included.
+- The picture is made first. If anything goes wrong on the way, your layers are left as they were.
 - Figma cannot hold one image larger than 4096 px on a side. For anything bigger, such as a long page, the plugin makes several pieces that fit together exactly and puts them in one group named `[Print]`. Nothing is shrunk or blurred.
-- Hidden and empty layers are left out. The plugin tells you which ones.
-- To undo, press ⌘Z or Ctrl+Z.
+- Hidden and empty layers are left out, and so are layers inside an instance, because Figma doesn't allow those to be replaced. The plugin tells you which ones.
 
 ---
 
@@ -154,7 +154,7 @@ Good to know:
 ## Privacy and safety
 
 - The plugin only changes your file when you press a button such as Rename or Merge into one, and every change can be undone.
-- The plugin never deletes your layers.
+- The only time layers are removed is **Merge into one**, which swaps them for the picture. One undo brings them back.
 - The plugin goes online for one thing only: checking for and downloading its own updates from GitHub, and only when you press the button. Nothing about your designs is sent anywhere.
 - **Update now** installs whatever is on the plugin's GitHub page. Only people you trust should be able to change that page, and the GitHub account should have two-step sign-in turned on.
 
@@ -204,6 +204,6 @@ After a few minutes, everyone who presses **Check for updates** sees the new ver
 
 **Checks**
 
-- `npm test` runs 59 automatic checks of the renaming rules, merging, Drive links and updating.
+- `npm test` runs 63 automatic checks of the renaming rules, merging, Drive links and updating.
 - `python3 test/e2e.py` clicks through every screen in a pretend Figma (needs Playwright).
 - These run outside Figma, so also try a new version in Figma itself on a spare file before sharing it.

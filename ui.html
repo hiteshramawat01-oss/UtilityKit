@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="utilitykit-version" content="1.6.0">
+<meta name="utilitykit-version" content="1.7.0">
 <title>UtilityKit</title>
 <style>:root {
   --bg: #F5F5F7;
@@ -972,7 +972,9 @@ html.figma-dark .toast.error { background: #D9473E; color: #fff; }
       card.appendChild(h('div', { class: 'kv' }, h('span', null, 'Layers'), h('span', { class: 'big' }, num(s.usable))));
       card.appendChild(h('div', { class: 'kv' }, h('span', null, 'Image size'), h('span', null, num(s.width) + ' × ' + num(s.height) + ' px')));
       card.appendChild(h('div', { class: 'kv' }, h('span', null, 'Layer name'), h('span', null, name)));
-      card.appendChild(h('p', { class: 'card-text' }, 'The image is placed beside your layers. Your layers stay as they are.'));
+      card.appendChild(h('p', { class: 'card-text' }, s.usable > 1
+        ? 'The image takes the place of these layers, exactly where they are. Undo with ⌘Z / Ctrl+Z.'
+        : 'The image takes the place of this layer, exactly where it is. Undo with ⌘Z / Ctrl+Z.'));
       if (s.tooLarge) {
         card.appendChild(note('warn', 'Too large to merge', ['Select fewer layers, or a smaller area.']));
       } else if (s.tiles > 1) {
@@ -986,12 +988,16 @@ html.figma-dark .toast.error { background: #D9473E; color: #fff; }
 
     var banner = clear($('flBanner'));
     if (r) {
-      var lines = ['It is beside your layers and selected. Your layers were not changed.'];
+      var lines = [r.sourceCount > 1 ? 'It is where the layers were, and selected.' : 'It is where the layer was, and selected.'];
       if (r.tiled) lines.push('It is in ' + r.tiles + ' pieces that fit together exactly, in one group.');
       if (r.skippedCount) lines.push(plural(r.skippedCount, 'layer') + ' left out.');
       lines.push('Undo with ⌘Z / Ctrl+Z.');
-      banner.appendChild(note('success', (r.sourceCount > 1 ? 'Merged ' + plural(r.sourceCount, 'layer') + ' into ' : 'Made ') + r.name, [lines.join(' ')],
+      banner.appendChild(note('success', (r.sourceCount > 1 ? 'Merged ' + plural(r.sourceCount, 'layer') + ' into ' : 'Turned 1 layer into ') + r.name, [lines.join(' ')],
         h('button', { class: 'btn small', type: 'button', onclick: function () { call('canvas.show', { ids: r.created }).catch(fail); } }, 'Show on canvas')));
+      if (r.keptCount) {
+        banner.appendChild(note('warn', plural(r.keptCount, 'layer') + ' could not be removed and ' + (r.keptCount === 1 ? 'is' : 'are') + ' still there',
+          r.kept.map(function (k) { return k.name + ' — ' + k.reason; })));
+      }
     }
 
     if (!f.busy) {
@@ -1002,7 +1008,7 @@ html.figma-dark .toast.error { background: #D9473E; color: #fff; }
     }
   }
 
-  /** One click: merge the selection into one image. Originals are never changed. */
+  /** One click: the selection becomes one image, in place. Undo is ⌘Z / Ctrl+Z. */
   function runFlatten() {
     var f = state.flatten;
     var btn = $('flMerge');
