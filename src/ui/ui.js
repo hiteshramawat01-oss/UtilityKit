@@ -168,7 +168,7 @@
     $('title').hidden = home;
     $('title').textContent = TITLES[screen] || '';
     $('openSettings').hidden = !home;                       // Settings is reached from Home only
-    $('selPill').hidden = home || screen === 'settings';     // the selection only matters inside a utility
+    $('selPill').hidden = !(screen === 'renamer' || screen === 'flatten');     // only where the selection is what gets changed
     $('toast').hidden = true;
     if (screen === 'settings') { $('stResetConfirm').hidden = true; $('stReset').hidden = false; renderUpdate(); }
     if (screen === 'renamer') enterRenamer();
@@ -444,7 +444,7 @@
     var f = state.flatten, s = f.summary;
     var card = clear($('flSummary'));
     var merge = $('flMerge');
-    var name = s ? s.resultName : '[Print]';
+    var name = s ? s.resultName : '[Print Section]';
     var r = f.result;
     // Right after a merge the new image is what is selected: show the result, not a second merge.
     var justMade = !!r && r.selectionKey === state.selection.key;
@@ -559,21 +559,21 @@
       state.drive = d;
       state.driveBusy = false;
       renderDrive();
-      if (announce) toast(d.pageFound ? plural(d.links.length, 'link') + ' found' : 'No “For Designers” page');
+      if (announce) toast(!d.pageFound ? 'No “For Designers” page' : d.link ? 'Google Drive link found' : 'No Google Drive link yet');
     }).catch(function (err) { state.driveBusy = false; renderDrive(); fail(err); });
   }
 
   function renderDrive() {
     var d = state.drive;
     var status = clear($('drStatus'));
-    var list = clear($('drLinks'));
-    list.hidden = true;
+    var addCard = $('drAddCard');
+    addCard.hidden = true;
 
     if (!d) {
-      status.appendChild(h('div', { class: 'empty' }, h('span', null, 'Looking for links…')));
+      status.appendChild(h('div', { class: 'empty' }, h('span', null, 'Looking for the link…')));
       return;
     }
-    var rescan = h('button', { class: 'icon-btn', type: 'button', icon: 'refresh', title: 'Rescan', 'aria-label': 'Rescan the page', disabled: state.driveBusy,
+    var rescan = h('button', { class: 'icon-btn', type: 'button', icon: 'refresh', title: 'Look again', 'aria-label': 'Look again', disabled: state.driveBusy,
       onclick: function () { scanDrive(true); } });
 
     if (!d.pageFound) {
@@ -584,57 +584,39 @@
         call('drive.createPage').then(function (res) { state.drive = res; renderDrive(); toast('Page created'); }).catch(function (err) { renderDrive(); fail(err); });
       } }, 'Create “For Designers” page'));
       $('drAddText').textContent = 'Create page & add link';
+      addCard.hidden = false;
       return;
     }
 
     $('drAddText').textContent = 'Add link';
-    var count = d.links.length;
+    var link = d.link;
     status.appendChild(h('div', { class: 'status' },
       h('div', { class: 'status-text' },
-        h('b', null, count ? plural(count, 'link') + ' found' : 'No Drive links yet'),
-        h('small', null, 'On the “' + d.pageName + '” page')),
-      d.isCurrentPage ? null : h('button', { class: 'icon-btn', type: 'button', icon: 'locate', title: 'Go to the page', 'aria-label': 'Go to the page',
-        onclick: function () { call('drive.goto', {}).then(function () { scanDrive(); }).catch(fail); } }),
+        h('b', null, link ? 'Google Drive link found' : 'No Google Drive link yet'),
+        h('small', null, 'On the “' + d.pageName + '” page.' + (link ? '' : ' Add it below.'))),
       rescan));
 
-    if (!count) {
-      status.appendChild(note('info', '', ['No Google Drive or Google Docs hyperlinks were found on this page. Add one below.']));
-      return;
-    }
-
-    status.appendChild(h('div', { class: 'quick' },
-      h('button', { class: 'btn small', type: 'button', onclick: function () { copyLink(d.links[0]); } }, h('i', { icon: 'copy' }), 'Copy first'),
-      h('button', { class: 'btn small', type: 'button', onclick: function () { openLink(d.links[0]); } }, h('i', { icon: 'open' }), 'Open first')));
-
-    list.hidden = false;
-    d.links.forEach(function (link) {
-      list.appendChild(h('div', { class: 'row link-row' },
-        h('div', { class: 'link-main' },
-          h('div', { class: 'link-top' },
-            h('span', { class: 'tag accent' }, link.kind),
-            h('span', { class: 'link-label', title: link.label }, link.label),
-            link.source === 'text' ? h('span', { class: 'tag', title: 'Found as plain text, not a clickable hyperlink' }, 'Plain text') : null,
-            link.count > 1 ? h('span', { class: 'tag', title: 'Appears ' + link.count + ' times on the page' }, '×' + link.count) : null),
-          h('div', { class: 'link-url', title: link.url }, link.url.replace(/^https:\/\//, ''))),
-        h('div', { class: 'link-btns' },
-          h('button', { class: 'icon-btn', type: 'button', icon: 'locate', title: 'Show on canvas', 'aria-label': 'Show ' + link.label + ' on canvas',
-            onclick: function () { call('drive.goto', { nodeId: link.nodeId }).then(function () { if (state.drive) { state.drive.isCurrentPage = true; renderDrive(); } }).catch(fail); } }),
-          h('button', { class: 'icon-btn', type: 'button', icon: 'copy', title: 'Copy link', 'aria-label': 'Copy ' + link.label, onclick: function () { copyLink(link); } }),
-          h('button', { class: 'icon-btn', type: 'button', icon: 'open', title: 'Open in browser', 'aria-label': 'Open ' + link.label, onclick: function () { openLink(link); } }))));
-    });
+    // One link is all this screen deals with: copy it or open it. With none, offer to add it.
+    if (!link) { addCard.hidden = false; return; }
+    status.appendChild(h('div', { class: 'link' },
+      h('div', { class: 'link-main' },
+        h('span', { class: 'link-label', title: link.label }, link.label),
+        h('span', { class: 'link-url', title: link.url }, link.url.replace(/^https:\/\//, ''))),
+      h('div', { class: 'quick' },
+        h('button', { class: 'btn small', type: 'button', onclick: function () { copyLink(link); } }, h('i', { icon: 'copy' }), 'Copy link'),
+        h('button', { class: 'btn small', type: 'button', onclick: function () { openLink(link); } }, h('i', { icon: 'open' }), 'Open link'))));
   }
 
   function addLink() {
-    var url = $('drUrl').value, label = $('drLabel').value;
+    var url = $('drUrl').value;
     var errBox = $('drError'), btn = $('drAdd');
     errBox.hidden = true;
     $('drUrl').classList.remove('invalid');
     btn.disabled = true;
-    call('drive.add', { url: url, label: label, createPage: !!(state.drive && !state.drive.pageFound) }).then(function (res) {
+    call('drive.add', { url: url, createPage: !!(state.drive && !state.drive.pageFound) }).then(function (res) {
       btn.disabled = false;
       state.drive = res;
       $('drUrl').value = '';
-      $('drLabel').value = '';
       renderDrive();
       toast('Link added');
     }).catch(function (err) {
@@ -864,7 +846,6 @@
     $('drAdd').addEventListener('click', addLink);
     var onEnter = function (e) { if (e.key === 'Enter') { e.preventDefault(); addLink(); } };
     $('drUrl').addEventListener('keydown', onEnter);
-    $('drLabel').addEventListener('keydown', onEnter);
     $('drUrl').addEventListener('input', function () { $('drUrl').classList.remove('invalid'); $('drError').hidden = true; });
 
     // resize grip

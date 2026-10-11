@@ -1,12 +1,12 @@
 # UtilityKit
 
-A Figma plugin · v1.7.0
+A Figma plugin · v1.8.0
 
 Three everyday helpers in one small window:
 
 - **Layer Renamer** — name frames the way the team guideline asks, in one go.
 - **Flatten & Merge** — merge selected layers into one image.
-- **Google Drive Links** — find the project's Drive links in one click.
+- **Google Drive Links** — find the project's Drive link in one click.
 
 ---
 
@@ -90,7 +90,7 @@ Good to know:
 
 ## Flatten & Merge
 
-Turns the layers you select into one picture, named `[Print]`, in the same place.
+Turns the layers you select into one picture, named `[Print Section]`, in the same place.
 
 1. Select one or more layers.
 2. Press **Merge into one**.
@@ -103,22 +103,28 @@ Good to know:
 - **Changed your mind?** Press ⌘Z (Mac) or Ctrl+Z (Windows) and the layers come back.
 - The picture is the same size as your layers (1×). Shadows and other effects are included.
 - The picture is made first. If anything goes wrong on the way, your layers are left as they were.
-- Figma cannot hold one image larger than 4096 px on a side. For anything bigger, such as a long page, the plugin makes several pieces that fit together exactly and puts them in one group named `[Print]`. Nothing is shrunk or blurred.
+- Figma cannot hold one image larger than 4096 px on a side. For anything bigger, such as a long page, the plugin makes several pieces that fit together exactly and puts them in one group named `[Print Section]`. Nothing is shrunk or blurred.
 - Hidden and empty layers are left out, and so are layers inside an instance, because Figma doesn't allow those to be replaced. The plugin tells you which ones.
 
 ---
 
 ## Google Drive Links
 
-Looks at the page named **For Designers** in your Figma file and lists every Google Drive and Google Docs link on it.
+Looks at the page named **For Designers** in your Figma file and shows the project's Google Drive link.
 
-- **Open first** / **Copy first** — for the first link on the page.
-- Each link has its own buttons to open it, copy it, or show where it sits in the file.
-- **Rescan** — look again after you change the page.
-- **Add a link** — type a name and paste the link. It is added to the For Designers page.
+- **Copy link** — copies the link so you can paste it anywhere.
+- **Open link** — opens it in your browser.
+- The round arrow looks again, for when you have changed the page.
+
+**No link yet?** Paste the Google Drive link in the box and press **Add link**. The plugin writes it on the For Designers page as a text link that says **GDrive link to folder**.
+
+Good to know:
+
+- The plugin shows one link. It looks for the text link named **GDrive link to folder**. If the page has no link with that name, it shows the first Google Drive link on the page. Other links on the page are not listed.
+- Once a link is found, the box for adding one is hidden. To change the link, edit the text link on the For Designers page in Figma.
 - No For Designers page yet? The plugin offers to create one. It never creates it without asking.
 
-What it does **not** do: it does not look inside Google Drive, it cannot tell whether a link still works or who can open it, and it never uploads or downloads files. It only works with links that are written in the Figma file.
+What it does **not** do: it does not look inside Google Drive, it cannot tell whether a link still works or who can open it, and it never uploads or downloads files. It only works with the link that is written in the Figma file.
 
 ---
 
@@ -204,6 +210,6 @@ After a few minutes, everyone who presses **Check for updates** sees the new ver
 
 **Checks**
 
-- `npm test` runs 63 automatic checks of the renaming rules, merging, Drive links and updating.
+- `npm test` runs 64 automatic checks of the renaming rules, merging, Drive links and updating.
 - `python3 test/e2e.py` clicks through every screen in a pretend Figma (needs Playwright).
 - These run outside Figma, so also try a new version in Figma itself on a spare file before sharing it.

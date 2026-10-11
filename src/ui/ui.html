@@ -42,7 +42,7 @@
         </button>
         <button class="tool" type="button" data-go="drive">
           <span class="tool-icon"><i data-icon="link"></i></span>
-          <span class="tool-text"><span class="tool-name">Google Drive Links</span><span class="tool-desc">Find project links on the “For Designers” page.</span></span>
+          <span class="tool-text"><span class="tool-name">Google Drive Links</span><span class="tool-desc">Copy or open the project’s Google Drive link.</span></span>
           <i data-icon="chevron" class="tool-go"></i>
         </button>
         <div class="tool tool-soon" aria-disabled="true">
@@ -144,20 +144,17 @@
     <section class="screen" data-screen="drive" hidden>
       <div class="scroll">
         <div class="card" id="drStatus"></div>
-        <div class="card list" id="drLinks" hidden></div>
-        <div class="card">
-          <div class="card-head"><h2>Add a link</h2></div>
-          <label class="input-label" for="drLabel">Label</label>
-          <input class="input" id="drLabel" type="text" placeholder="e.g. Project folder" maxlength="120" autocomplete="off">
-          <label class="input-label" for="drUrl">Google Drive or Docs URL</label>
-          <input class="input" id="drUrl" type="text" placeholder="https://drive.google.com/…" autocomplete="off" spellcheck="false">
+        <div class="card" id="drAddCard">
+          <div class="card-head"><h2>Add the link</h2></div>
+          <input class="input" id="drUrl" type="text" placeholder="Paste the Google Drive link" aria-label="Google Drive link" autocomplete="off" spellcheck="false">
           <div class="note error" id="drError" hidden></div>
           <button class="btn block" type="button" id="drAdd"><i data-icon="plus"></i><span id="drAddText">Add link</span></button>
         </div>
         <details class="card details">
           <summary><h2>What this can and can’t do</h2><i data-icon="down" class="details-arrow"></i></summary>
           <div class="details-body prose">
-            <p><b>It can</b> find Google Drive and Google Docs hyperlinks that are already in this file’s “For Designers” page, open or copy them, and add new link text to that page.</p>
+            <p><b>It can</b> find the Google Drive link on this file’s “For Designers” page, copy it or open it, and add one when there is none. A link you add is written on that page as “GDrive link to folder”.</p>
+            <p>It shows one link: the one named “GDrive link to folder”, or the first Google Drive link on the page if there isn’t one with that name.</p>
             <p><b>It can’t</b> see inside Google Drive. It doesn’t check that a link works or who has access, and it never uploads, downloads or syncs files. The plugin never contacts Google.</p>
           </div>
         </details>

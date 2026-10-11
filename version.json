@@ -1,9 +1,10 @@
 {
-  "version": "1.7.0",
+  "version": "1.8.0",
   "released": "2026-10-11",
   "notes": [
-    "Flatten & Merge: the image now takes the place of your layers, exactly where they are. No new layer beside the artboard.",
-    "The image is named [Print]. Press ⌘Z / Ctrl+Z to get the layers back."
+    "Google Drive Links: one simple card. It shows the project's link and lets you copy it or open it.",
+    "Adding the link only asks for the link. It is written on the page as “GDrive link to folder”.",
+    "Flatten & Merge: the merged layer is now named [Print Section]."
   ],
   "download": "https://github.com/hiteshramawat01-oss/UtilityKit/archive/refs/heads/main.zip",
   "page": "https://github.com/hiteshramawat01-oss/UtilityKit"

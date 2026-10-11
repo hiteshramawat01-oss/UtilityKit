@@ -43,7 +43,7 @@ def run():
         ev = page.evaluate
 
         # ── Home ──
-        expect(ui.locator("#version")).to_have_text("v1.7.0")
+        expect(ui.locator("#version")).to_have_text("v1.8.0")
         expect(ui.locator("#selPill")).to_be_hidden()                # no selection count on Home
         expect(ui.locator("#updCheck")).to_have_count(0)             # the footer is just the version…
         vbox = ui.locator("#version").bounding_box()
@@ -57,7 +57,7 @@ def run():
         expect(ui.locator("#title")).to_have_text("Settings")
         expect(ui.locator("#openSettings")).to_be_hidden()
         expect(ui.locator("#selPill")).to_be_hidden()
-        expect(ui.locator("#stVersion")).to_have_text("Installed: v1.7.0")
+        expect(ui.locator("#stVersion")).to_have_text("Installed: v1.8.0")
         expect(ui.locator("#stRemove")).to_be_hidden()
         ui.locator("#stCheck").click()                               # repository has no version.json / is private
         expect(ui.locator("#toast")).to_contain_text("may be private")
@@ -68,14 +68,14 @@ def run():
         expect(ui.locator("#toast")).to_contain_text("Couldn’t reach GitHub")
         ev("window.__versionJson = JSON.stringify({ version: UK.VERSION })")
         ui.locator("#stCheck").click()
-        expect(ui.locator("#toast")).to_have_text("You’re up to date (v1.7.0).")
+        expect(ui.locator("#toast")).to_have_text("You’re up to date (v1.8.0).")
         expect(ui.locator("#stUpdBox")).to_be_hidden()
         ev("""window.__versionJson = JSON.stringify({ version: '9.9.0', released: '2026-11-02',
               notes: ['New: Export presets.', 'Fix: renaming inside instances.'],
               download: 'https://evil.example.com/malware.zip' })""")
         ui.locator("#stCheck").click()
         expect(ui.locator("#stUpdBox")).to_contain_text("Version 9.9.0 is available")
-        expect(ui.locator("#stUpdBox")).to_contain_text("You have v1.7.0. Released 2026-11-02.")
+        expect(ui.locator("#stUpdBox")).to_contain_text("You have v1.8.0. Released 2026-11-02.")
         expect(ui.locator("#stUpdBox li")).to_have_count(2)
         expect(ui.locator("#stCheck")).to_have_text("Check for updates")
         expect(ui.locator('#stUpdBox [data-act="install"]')).to_have_text("Update now")
@@ -249,7 +249,7 @@ def run():
         saved_file = ev("figma.root.getPluginData('utilitykit.file.v1')")
         ev("figma.root.setPluginData('utilitykit.file.v1', '')")
         ev("launch()")
-        expect(ui.locator("#version")).to_have_text("v1.7.0")
+        expect(ui.locator("#version")).to_have_text("v1.8.0")
         ui.locator('[data-go="renamer"]').click()
         expect(ui.locator("#rnForm")).to_be_visible()
         expect(ui.locator("#rnAsk")).to_be_hidden()
@@ -257,7 +257,7 @@ def run():
         ui.locator("#back").click()
         ev("(v) => figma.root.setPluginData('utilitykit.file.v1', v)", saved_file)
         ev("launch()")
-        expect(ui.locator("#version")).to_have_text("v1.7.0")
+        expect(ui.locator("#version")).to_have_text("v1.8.0")
 
         # ── Settings: reset ──
         ui.locator("#openSettings").click()
@@ -277,7 +277,7 @@ def run():
         expect(ui.locator("#rnAsk")).to_be_hidden()
         ui.locator("#back").click()
 
-        # ── Flatten & Merge: one action; the layers become [Print], in place ──
+        # ── Flatten & Merge: one action; the layers become [Print Section], in place ──
         ev("env.select([demo.a, demo.b])")
         ui.locator('[data-go="flatten"]').click()
         expect(ui.locator('section[data-screen="flatten"] .btn')).to_have_count(1)     # one button, no options
@@ -285,20 +285,20 @@ def run():
         expect(ui.locator("#flEach, #flScale, #flConfirm, input[name=flOriginals]")).to_have_count(0)
         expect(ui.locator('section[data-screen="flatten"]')).not_to_contain_text("Options")
         expect(ui.locator("#flSummary")).to_contain_text("1,440 × 1,600 px")
-        expect(ui.locator("#flSummary")).to_contain_text("[Print]")
+        expect(ui.locator("#flSummary")).to_contain_text("[Print Section]")
         expect(ui.locator("#flSummary")).to_contain_text("takes the place of these layers")
         shot("06-flatten")
         before = ev("env.all().length")
         top_level = ev("figma.currentPage.children.length")
         ui.locator("#flMerge").click()
-        expect(ui.locator("#flBanner .note.success")).to_contain_text("Merged 2 layers into [Print]")
+        expect(ui.locator("#flBanner .note.success")).to_contain_text("Merged 2 layers into [Print Section]")
         expect(ui.locator("#flBanner .note.success")).to_contain_text("It is where the layers were")
         assert ev("env.all().length") == before - 1, "two layers out, one image in"
         assert ev("figma.currentPage.children.length") == top_level, "no new layer beside the artboard"
         assert ev("[demo.a.removed, demo.b.removed, demo.c.removed]") == [True, True, False]
-        assert ev("demo.art.children.map(c => c.name)") == ["[Print]", "About - Design - Acme Corp - V1"]   # same spot in the layer list
+        assert ev("demo.art.children.map(c => c.name)") == ["[Print Section]", "About - Design - Acme Corp - V1"]   # same spot in the layer list
         sel = "figma.currentPage.selection[0]"
-        assert ev("[%s.name, %s.type, %s.parent === demo.art]" % (sel, sel, sel)) == ["[Print]", "RECTANGLE", True]
+        assert ev("[%s.name, %s.type, %s.parent === demo.art]" % (sel, sel, sel)) == ["[Print Section]", "RECTANGLE", True]
         assert ev("[%s.x, %s.y, %s.width, %s.height]" % (sel, sel, sel, sel)) == [0, 0, 1440, 1600]          # same place, same size
         assert ev("env.log.exports[env.log.exports.length - 1].scale") == 1
         assert ev("env.log.undo") >= 1
@@ -311,7 +311,7 @@ def run():
         ui.locator("#flBanner .btn").click()
         page.wait_for_function("env.log.zoomed && env.log.zoomed.length === 1")
 
-        # too big for one Figma image: pieces that fit together, in a [Print] group, still in place
+        # too big for one Figma image: pieces that fit together, in a [Print Section] group, still in place
         ev("window.longPage = env.add('FRAME', { name: 'Long page', x: 9000, y: 100, width: 1600, height: 9000 }); env.select([longPage])")
         expect(ui.locator("#flBanner .note")).to_have_count(0)      # the old result message is gone
         expect(ui.locator("#flMerge")).to_be_enabled()
@@ -320,9 +320,9 @@ def run():
         expect(ui.locator("#flSummary .note.info")).to_contain_text("3 pieces that fit together exactly")
         shot("08-flatten-large")
         ui.locator("#flMerge").click()
-        expect(ui.locator("#flBanner .note.success")).to_contain_text("Turned 1 layer into [Print]")
+        expect(ui.locator("#flBanner .note.success")).to_contain_text("Turned 1 layer into [Print Section]")
         expect(ui.locator("#flBanner .note.success")).to_contain_text("3 pieces")
-        assert ev("[%s.name, %s.type, %s.x, %s.y]" % (sel, sel, sel, sel)) == ["[Print]", "GROUP", 9000, 100]
+        assert ev("[%s.name, %s.type, %s.x, %s.y]" % (sel, sel, sel, sel)) == ["[Print Section]", "GROUP", 9000, 100]
         assert ev("%s.children.map(c => c.name)" % sel) == ["Part 1", "Part 2", "Part 3"]
         assert ev("longPage.removed") is True
         assert ev("env.all().filter(n => /UtilityKit temp/.test(n.name)).length") == 0
@@ -337,37 +337,61 @@ def run():
         shot("09-flatten-empty")
         ui.locator("#back").click()
 
-        # ── Google Drive Links ──
+        # ── Google Drive Links: one link, copy it or open it ──
+        ev("env.select([demo.c])")
         ui.locator('[data-go="drive"]').click()
+        expect(ui.locator("#selPill")).to_be_hidden()               # the selection has nothing to do with this screen
+        expect(ui.locator("#drLabel")).to_have_count(0)             # only the link is asked for
+        expect(ui.locator('section[data-screen="drive"]')).not_to_contain_text("Label")
         expect(ui.locator("#drStatus")).to_contain_text("No “For Designers” page")
+        expect(ui.locator("#drAddCard")).to_be_visible()
         expect(ui.locator("#drAddText")).to_have_text("Create page & add link")
         shot("10-drive-no-page")
-        ui.locator("#drLabel").fill("Project folder")
         ui.locator("#drUrl").fill("https://dropbox.com/s/abc")
         ui.locator("#drAdd").click()
         expect(ui.locator("#drError")).to_contain_text("isn’t a Google Drive or Google Docs link")
         assert ev("figma.root.children.length") == 1, "no page created for a rejected link"
         ui.locator("#drUrl").fill("https://drive.google.com/drive/folders/1AbCdEfGhIjKlMnOpQrStUvWxYz")
-        ui.locator("#drAdd").click()
-        expect(ui.locator("#drStatus")).to_contain_text("1 link found")
-        ui.locator("#drLabel").fill("Creative brief")
-        ui.locator("#drUrl").fill("docs.google.com/document/d/1xyz/edit")
         ui.locator("#drUrl").press("Enter")
-        expect(ui.locator("#drStatus")).to_contain_text("2 links found")
-        expect(ui.locator("#drLinks .link-label").nth(1)).to_have_text("Creative brief")
+        # one card says it once: the link is there, copy it or open it; nothing more to add
+        expect(ui.locator("#drStatus .status-text b")).to_have_text("Google Drive link found")
+        expect(ui.locator("#drStatus .link")).to_have_count(1)
+        expect(ui.locator("#drStatus .link .btn")).to_have_text(["Copy link", "Open link"])
+        expect(ui.locator("#drStatus")).not_to_contain_text("first")
+        expect(ui.locator("#drLinks")).to_have_count(0)
+        expect(ui.locator("#drAddCard")).to_be_hidden()
         assert ev("figma.root.children.map(p => p.name)") == ["2026-05 - Homepage", "For Designers"]
-        shot("11-drive-links")
-        ui.locator("#drStatus .quick .btn").nth(1).click()          # Open first
+        # on the page it is a text link that says "GDrive link to folder"
+        added = "figma.root.children[1].children[0].children[1]"
+        assert ev("[%s.type, %s.characters, %s.textDecoration]" % (added, added, added)) == ["TEXT", "GDrive link to folder", "UNDERLINE"]
+        assert ev("%s._links[0].url" % added) == "https://drive.google.com/drive/folders/1AbCdEfGhIjKlMnOpQrStUvWxYz"
+        expect(ui.locator("#drStatus .link-label")).to_have_text("GDrive link to folder")
+        page.frames[1].evaluate("document.getElementById('toast').hidden = true")
+        shot("11-drive-link")
+        ui.locator("#drStatus .link .btn").nth(1).click()           # Open link
         page.wait_for_function("env.log.opened.length === 1")
         assert ev("env.log.opened") == ["https://drive.google.com/drive/folders/1AbCdEfGhIjKlMnOpQrStUvWxYz"]
-        ui.locator("#drStatus .quick .btn").nth(0).click()          # Copy first
-        expect(ui.locator("#toast")).to_be_visible()
-        # a link added by hand in Figma shows up on rescan
+        ui.locator("#drStatus .link .btn").nth(0).click()           # Copy link
+        expect(ui.locator("#toast")).to_have_text("Link copied")
+
+        # other Google links on the page are not listed: still the one link
         ev("""(() => { const pg = figma.root.children[1]; const t = env.make('TEXT', { name: 'Sheet', y: -50, characters: 'Asset tracker',
               links: [{ start: 0, end: 13, url: 'https://docs.google.com/spreadsheets/d/1trk/edit' }] }); pg.children.push(t); t.parent = pg; })()""")
-        ui.locator('#drStatus button[title="Rescan"]').click()
-        expect(ui.locator("#drStatus")).to_contain_text("3 links found")
-        expect(ui.locator("#drLinks .link-label").first).to_have_text("Asset tracker")
+        ui.locator('#drStatus button[title="Look again"]').click()
+        expect(ui.locator("#toast")).to_have_text("Google Drive link found")
+        expect(ui.locator("#drStatus .link")).to_have_count(1)
+        expect(ui.locator("#drStatus .link-label")).to_have_text("GDrive link to folder")
+        expect(ui.locator("#drStatus")).not_to_contain_text("Asset tracker")
+
+        # the link is deleted in Figma: the screen offers to add it again
+        ev("%s.remove()" % added)
+        ev("figma.root.children[1].children[1].remove()")
+        ui.locator('#drStatus button[title="Look again"]').click()
+        expect(ui.locator("#drStatus .status-text b")).to_have_text("No Google Drive link yet")
+        expect(ui.locator("#drAddCard")).to_be_visible()
+        expect(ui.locator("#drAddText")).to_have_text("Add link")
+        page.frames[1].evaluate("document.getElementById('toast').hidden = true")
+        shot("11-drive-empty")
         ui.locator("#back").click()
 
         # ── narrow window + dark theme ──
@@ -401,7 +425,7 @@ def run():
         expect(ui.locator("#toast")).to_contain_text("still being published")
         expect(ui.locator('#stUpdBox [data-act="install"]')).to_have_text("Update now")
         assert saved() is None
-        expect(ui.locator("#stVersion")).to_have_text("Installed: v1.7.0")
+        expect(ui.locator("#stVersion")).to_have_text("Installed: v1.8.0")
 
         # the real thing
         ev(load_release, release("9.9.0", "UPDATED BUILD 9.9.0"))
@@ -430,13 +454,13 @@ def run():
         expect(ui.locator("#version")).to_have_text("v9.9.0")
         ui.locator("#openSettings").click()
         expect(ui.locator("#stVersion")).to_have_text("Installed: v9.9.0")
-        expect(ui.locator("#stSource")).to_contain_text("The plugin folder still holds v1.7.0")
-        expect(ui.locator("#stRemove")).to_have_text("Go back to v1.7.0")
+        expect(ui.locator("#stSource")).to_contain_text("The plugin folder still holds v1.8.0")
+        expect(ui.locator("#stRemove")).to_have_text("Go back to v1.8.0")
         shot("16-settings-updated")
 
         # going back
         ui.locator("#stRemove").click()
-        expect(ui.locator("#version")).to_have_text("v1.7.0")
+        expect(ui.locator("#version")).to_have_text("v1.8.0")
         expect(ui.locator(".lede")).to_have_text("Everyday design utilities in one place.")
         page.wait_for_function("env.storage['%s'] === undefined" % KEY)
 
@@ -448,7 +472,7 @@ def run():
         page.wait_for_function("JSON.parse(env.storage['%s']).pending === false" % KEY)
         ev("(() => { const s = JSON.parse(env.storage['%s']); s.pending = true; env.storage['%s'] = JSON.stringify(s); })()" % (KEY, KEY))
         ev("launch()")
-        expect(ui.locator("#version")).to_have_text("v1.7.0")
+        expect(ui.locator("#version")).to_have_text("v1.8.0")
         expect(ui.locator("#toast")).to_contain_text("Update 9.9.0 didn’t start properly")
         assert saved() is None
 

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="utilitykit-version" content="1.7.0">
+<meta name="utilitykit-version" content="1.8.0">
 <title>UtilityKit</title>
 <style>:root {
   --bg: #F5F5F7;
@@ -245,28 +245,13 @@ html.figma-dark .btn.danger { background: #D9473E; border-color: #D9473E; }
 .stat-accent b, .stat-accent span { color: var(--accent-text); }
 
 /* ── lists ── */
-.card.list { padding: 0; gap: 0; }
-.row { padding: 9px 12px; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.row + .row { border-top: 1px solid var(--border); }
-.row-old { color: var(--muted); overflow-wrap: anywhere; font-size: 11.5px; }
-.row-new { display: flex; gap: 6px; align-items: flex-start; font-weight: 600; overflow-wrap: anywhere; min-width: 0; }
-.row-new i { color: var(--accent-text); margin-top: 1px; }
-.row-new span { min-width: 0; user-select: text; }
-.row.done .row-new i { color: var(--ok); }
-.row.same .row-new { font-weight: 500; }
-.row-meta { color: var(--faint); font-size: 11px; display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
-.tag { display: inline-block; font-size: 10.5px; font-weight: 550; padding: 1px 6px; border-radius: 4px; background: var(--sunken); border: 1px solid var(--border); color: var(--muted); white-space: nowrap; }
-.tag.accent { background: var(--accent-soft); border-color: transparent; color: var(--accent-text); }
-.more { padding: 9px 12px; color: var(--muted); border-top: 1px solid var(--border); text-align: center; }
 .empty { padding: 18px 14px; text-align: center; color: var(--muted); display: flex; flex-direction: column; gap: 3px; align-items: center; }
 .empty b { color: var(--text); }
 
-.link-row { flex-direction: row; align-items: center; gap: 8px; padding: 8px 6px 8px 12px; }
-.link-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.link-top { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.link { display: flex; flex-direction: column; gap: 8px; padding-top: 10px; border-top: 1px solid var(--border); min-width: 0; }
+.link-main { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .link-label { font-weight: 550; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .link-url { color: var(--muted); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; user-select: text; }
-.link-btns { display: flex; flex: none; }
 
 /* ── summary blocks ── */
 .kv { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
@@ -348,7 +333,7 @@ html.figma-dark .toast.error { background: #D9473E; color: #fff; }
         </button>
         <button class="tool" type="button" data-go="drive">
           <span class="tool-icon"><i data-icon="link"></i></span>
-          <span class="tool-text"><span class="tool-name">Google Drive Links</span><span class="tool-desc">Find project links on the “For Designers” page.</span></span>
+          <span class="tool-text"><span class="tool-name">Google Drive Links</span><span class="tool-desc">Copy or open the project’s Google Drive link.</span></span>
           <i data-icon="chevron" class="tool-go"></i>
         </button>
         <div class="tool tool-soon" aria-disabled="true">
@@ -450,20 +435,17 @@ html.figma-dark .toast.error { background: #D9473E; color: #fff; }
     <section class="screen" data-screen="drive" hidden>
       <div class="scroll">
         <div class="card" id="drStatus"></div>
-        <div class="card list" id="drLinks" hidden></div>
-        <div class="card">
-          <div class="card-head"><h2>Add a link</h2></div>
-          <label class="input-label" for="drLabel">Label</label>
-          <input class="input" id="drLabel" type="text" placeholder="e.g. Project folder" maxlength="120" autocomplete="off">
-          <label class="input-label" for="drUrl">Google Drive or Docs URL</label>
-          <input class="input" id="drUrl" type="text" placeholder="https://drive.google.com/…" autocomplete="off" spellcheck="false">
+        <div class="card" id="drAddCard">
+          <div class="card-head"><h2>Add the link</h2></div>
+          <input class="input" id="drUrl" type="text" placeholder="Paste the Google Drive link" aria-label="Google Drive link" autocomplete="off" spellcheck="false">
           <div class="note error" id="drError" hidden></div>
           <button class="btn block" type="button" id="drAdd"><i data-icon="plus"></i><span id="drAddText">Add link</span></button>
         </div>
         <details class="card details">
           <summary><h2>What this can and can’t do</h2><i data-icon="down" class="details-arrow"></i></summary>
           <div class="details-body prose">
-            <p><b>It can</b> find Google Drive and Google Docs hyperlinks that are already in this file’s “For Designers” page, open or copy them, and add new link text to that page.</p>
+            <p><b>It can</b> find the Google Drive link on this file’s “For Designers” page, copy it or open it, and add one when there is none. A link you add is written on that page as “GDrive link to folder”.</p>
+            <p>It shows one link: the one named “GDrive link to folder”, or the first Google Drive link on the page if there isn’t one with that name.</p>
             <p><b>It can’t</b> see inside Google Drive. It doesn’t check that a link works or who has access, and it never uploads, downloads or syncs files. The plugin never contacts Google.</p>
           </div>
         </details>
@@ -677,7 +659,7 @@ html.figma-dark .toast.error { background: #D9473E; color: #fff; }
     $('title').hidden = home;
     $('title').textContent = TITLES[screen] || '';
     $('openSettings').hidden = !home;                       // Settings is reached from Home only
-    $('selPill').hidden = home || screen === 'settings';     // the selection only matters inside a utility
+    $('selPill').hidden = !(screen === 'renamer' || screen === 'flatten');     // only where the selection is what gets changed
     $('toast').hidden = true;
     if (screen === 'settings') { $('stResetConfirm').hidden = true; $('stReset').hidden = false; renderUpdate(); }
     if (screen === 'renamer') enterRenamer();
@@ -953,7 +935,7 @@ html.figma-dark .toast.error { background: #D9473E; color: #fff; }
     var f = state.flatten, s = f.summary;
     var card = clear($('flSummary'));
     var merge = $('flMerge');
-    var name = s ? s.resultName : '[Print]';
+    var name = s ? s.resultName : '[Print Section]';
     var r = f.result;
     // Right after a merge the new image is what is selected: show the result, not a second merge.
     var justMade = !!r && r.selectionKey === state.selection.key;
@@ -1068,21 +1050,21 @@ html.figma-dark .toast.error { background: #D9473E; color: #fff; }
       state.drive = d;
       state.driveBusy = false;
       renderDrive();
-      if (announce) toast(d.pageFound ? plural(d.links.length, 'link') + ' found' : 'No “For Designers” page');
+      if (announce) toast(!d.pageFound ? 'No “For Designers” page' : d.link ? 'Google Drive link found' : 'No Google Drive link yet');
     }).catch(function (err) { state.driveBusy = false; renderDrive(); fail(err); });
   }
 
   function renderDrive() {
     var d = state.drive;
     var status = clear($('drStatus'));
-    var list = clear($('drLinks'));
-    list.hidden = true;
+    var addCard = $('drAddCard');
+    addCard.hidden = true;
 
     if (!d) {
-      status.appendChild(h('div', { class: 'empty' }, h('span', null, 'Looking for links…')));
+      status.appendChild(h('div', { class: 'empty' }, h('span', null, 'Looking for the link…')));
       return;
     }
-    var rescan = h('button', { class: 'icon-btn', type: 'button', icon: 'refresh', title: 'Rescan', 'aria-label': 'Rescan the page', disabled: state.driveBusy,
+    var rescan = h('button', { class: 'icon-btn', type: 'button', icon: 'refresh', title: 'Look again', 'aria-label': 'Look again', disabled: state.driveBusy,
       onclick: function () { scanDrive(true); } });
 
     if (!d.pageFound) {
@@ -1093,57 +1075,39 @@ html.figma-dark .toast.error { background: #D9473E; color: #fff; }
         call('drive.createPage').then(function (res) { state.drive = res; renderDrive(); toast('Page created'); }).catch(function (err) { renderDrive(); fail(err); });
       } }, 'Create “For Designers” page'));
       $('drAddText').textContent = 'Create page & add link';
+      addCard.hidden = false;
       return;
     }
 
     $('drAddText').textContent = 'Add link';
-    var count = d.links.length;
+    var link = d.link;
     status.appendChild(h('div', { class: 'status' },
       h('div', { class: 'status-text' },
-        h('b', null, count ? plural(count, 'link') + ' found' : 'No Drive links yet'),
-        h('small', null, 'On the “' + d.pageName + '” page')),
-      d.isCurrentPage ? null : h('button', { class: 'icon-btn', type: 'button', icon: 'locate', title: 'Go to the page', 'aria-label': 'Go to the page',
-        onclick: function () { call('drive.goto', {}).then(function () { scanDrive(); }).catch(fail); } }),
+        h('b', null, link ? 'Google Drive link found' : 'No Google Drive link yet'),
+        h('small', null, 'On the “' + d.pageName + '” page.' + (link ? '' : ' Add it below.'))),
       rescan));
 
-    if (!count) {
-      status.appendChild(note('info', '', ['No Google Drive or Google Docs hyperlinks were found on this page. Add one below.']));
-      return;
-    }
-
-    status.appendChild(h('div', { class: 'quick' },
-      h('button', { class: 'btn small', type: 'button', onclick: function () { copyLink(d.links[0]); } }, h('i', { icon: 'copy' }), 'Copy first'),
-      h('button', { class: 'btn small', type: 'button', onclick: function () { openLink(d.links[0]); } }, h('i', { icon: 'open' }), 'Open first')));
-
-    list.hidden = false;
-    d.links.forEach(function (link) {
-      list.appendChild(h('div', { class: 'row link-row' },
-        h('div', { class: 'link-main' },
-          h('div', { class: 'link-top' },
-            h('span', { class: 'tag accent' }, link.kind),
-            h('span', { class: 'link-label', title: link.label }, link.label),
-            link.source === 'text' ? h('span', { class: 'tag', title: 'Found as plain text, not a clickable hyperlink' }, 'Plain text') : null,
-            link.count > 1 ? h('span', { class: 'tag', title: 'Appears ' + link.count + ' times on the page' }, '×' + link.count) : null),
-          h('div', { class: 'link-url', title: link.url }, link.url.replace(/^https:\/\//, ''))),
-        h('div', { class: 'link-btns' },
-          h('button', { class: 'icon-btn', type: 'button', icon: 'locate', title: 'Show on canvas', 'aria-label': 'Show ' + link.label + ' on canvas',
-            onclick: function () { call('drive.goto', { nodeId: link.nodeId }).then(function () { if (state.drive) { state.drive.isCurrentPage = true; renderDrive(); } }).catch(fail); } }),
-          h('button', { class: 'icon-btn', type: 'button', icon: 'copy', title: 'Copy link', 'aria-label': 'Copy ' + link.label, onclick: function () { copyLink(link); } }),
-          h('button', { class: 'icon-btn', type: 'button', icon: 'open', title: 'Open in browser', 'aria-label': 'Open ' + link.label, onclick: function () { openLink(link); } }))));
-    });
+    // One link is all this screen deals with: copy it or open it. With none, offer to add it.
+    if (!link) { addCard.hidden = false; return; }
+    status.appendChild(h('div', { class: 'link' },
+      h('div', { class: 'link-main' },
+        h('span', { class: 'link-label', title: link.label }, link.label),
+        h('span', { class: 'link-url', title: link.url }, link.url.replace(/^https:\/\//, ''))),
+      h('div', { class: 'quick' },
+        h('button', { class: 'btn small', type: 'button', onclick: function () { copyLink(link); } }, h('i', { icon: 'copy' }), 'Copy link'),
+        h('button', { class: 'btn small', type: 'button', onclick: function () { openLink(link); } }, h('i', { icon: 'open' }), 'Open link'))));
   }
 
   function addLink() {
-    var url = $('drUrl').value, label = $('drLabel').value;
+    var url = $('drUrl').value;
     var errBox = $('drError'), btn = $('drAdd');
     errBox.hidden = true;
     $('drUrl').classList.remove('invalid');
     btn.disabled = true;
-    call('drive.add', { url: url, label: label, createPage: !!(state.drive && !state.drive.pageFound) }).then(function (res) {
+    call('drive.add', { url: url, createPage: !!(state.drive && !state.drive.pageFound) }).then(function (res) {
       btn.disabled = false;
       state.drive = res;
       $('drUrl').value = '';
-      $('drLabel').value = '';
       renderDrive();
       toast('Link added');
     }).catch(function (err) {
@@ -1373,7 +1337,6 @@ html.figma-dark .toast.error { background: #D9473E; color: #fff; }
     $('drAdd').addEventListener('click', addLink);
     var onEnter = function (e) { if (e.key === 'Enter') { e.preventDefault(); addLink(); } };
     $('drUrl').addEventListener('keydown', onEnter);
-    $('drLabel').addEventListener('keydown', onEnter);
     $('drUrl').addEventListener('input', function () { $('drUrl').classList.remove('invalid'); $('drError').hidden = true; });
 
     // resize grip

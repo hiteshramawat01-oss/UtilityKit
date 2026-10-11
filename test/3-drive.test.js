@@ -31,7 +31,7 @@ test('url rules: only Google Drive / Docs hosts are accepted', () => {
 test('scan: no page', async () => {
   const { call } = load();
   const res = await call('drive.scan');
-  assert.deepEqual(res.data, { pageFound: false, pageName: 'For Designers', links: [] });
+  assert.deepEqual(res.data, { pageFound: false, pageName: 'For Designers', link: null, links: [] });
 });
 
 test('scan: finds hyperlinks and pasted URLs, ignores other sites, orders top-to-bottom', async () => {
@@ -55,25 +55,44 @@ test('scan: finds hyperlinks and pasted URLs, ignores other sites, orders top-to
     ['Brief', 'Doc', 'hyperlink', 1]
   ]);
   assert.equal(res.data.links[1].url, 'https://docs.google.com/spreadsheets/d/TRACK/edit');
+  // the interface is given one link: with none named "GDrive link to folder", the first on the page
+  assert.deepEqual([res.data.link.label, res.data.link.url], ['Project folder', 'https://drive.google.com/drive/folders/PROJECT']);
   assert.equal(env.figma.currentPage.name, 'Page 1', 'scanning does not switch pages');
+});
+
+test('scan: the one link shown is the text link named "GDrive link to folder", wherever it sits on the page', async () => {
+  const { env, call } = load();
+  const page = withPage(env);
+  let res = await call('drive.scan');
+  assert.equal(res.data.pageFound, true);
+  assert.equal(res.data.link, null);
+
+  text(env, page, { name: 'top', y: 10, characters: 'Creative brief', links: [{ start: 0, end: 14, url: 'https://docs.google.com/document/d/BRIEF/edit' }] });
+  res = await call('drive.scan');
+  assert.equal(res.data.link.label, 'Creative brief', 'a file set up by hand still shows its link');
+
+  text(env, page, { name: 'low', y: 900, characters: 'Gdrive Link To Folder', links: [{ start: 0, end: 21, url: 'https://drive.google.com/drive/folders/PROJECT' }] });
+  res = await call('drive.scan');
+  assert.deepEqual([res.data.link.label, res.data.link.url], ['Gdrive Link To Folder', 'https://drive.google.com/drive/folders/PROJECT']);
 });
 
 test('add: validates, refuses duplicates, and never creates a page unasked', async () => {
   const { env, call } = load();
-  let res = await call('drive.add', { url: 'https://example.com/file', label: 'x' });
+  let res = await call('drive.add', { url: 'https://example.com/file' });
   assert.match(res.error.message, /isn’t a Google Drive or Google Docs link/);
   res = await call('drive.add', { url: '  ' });
   assert.match(res.error.message, /Paste a Google Drive/);
-  res = await call('drive.add', { url: 'https://drive.google.com/drive/folders/A', label: 'Assets' });
+  res = await call('drive.add', { url: 'https://drive.google.com/drive/folders/A' });
   assert.equal(res.ok, false);
   assert.equal(res.error.code, 'NO_PAGE');
   assert.equal(env.figma.root.children.length, 1);
 
+  // only the link is asked for; a label sent by an older interface is ignored
   res = await call('drive.add', { url: 'https://drive.google.com/drive/folders/A', label: 'Assets', createPage: true });
   assert.equal(res.ok, true);
   assert.equal(env.figma.root.children.length, 2);
   assert.equal(res.data.pageName, 'For Designers');
-  assert.deepEqual(res.data.links.map((l) => [l.label, l.url]), [['Assets', 'https://drive.google.com/drive/folders/A']]);
+  assert.deepEqual(res.data.links.map((l) => [l.label, l.url]), [['GDrive link to folder', 'https://drive.google.com/drive/folders/A']]);
   assert.equal(env.figma.currentPage.name, 'Page 1');
 
   // lands in one "Drive Links" frame on that page, as a real hyperlink
@@ -82,16 +101,20 @@ test('add: validates, refuses duplicates, and never creates a page unasked', asy
   const frame = page.children[0];
   assert.equal(frame.name, 'Drive Links');
   const link = frame.children[1];
-  assert.equal(link.characters, 'Assets');
-  assert.deepEqual(JSON.parse(JSON.stringify(link._links)), [{ start: 0, end: 6, url: 'https://drive.google.com/drive/folders/A' }]);
+  assert.equal(link.characters, 'GDrive link to folder');
+  assert.equal(link.name, 'GDrive link to folder');
+  assert.equal(link.textDecoration, 'UNDERLINE');
+  assert.deepEqual(JSON.parse(JSON.stringify(link._links)), [{ start: 0, end: 21, url: 'https://drive.google.com/drive/folders/A' }]);
+  assert.deepEqual(res.data.added, { url: 'https://drive.google.com/drive/folders/A', label: 'GDrive link to folder' });
+  assert.deepEqual([res.data.link.label, res.data.link.url], ['GDrive link to folder', 'https://drive.google.com/drive/folders/A']);
 
-  res = await call('drive.add', { url: 'drive.google.com/drive/folders/A', label: 'Again' });
-  assert.match(res.error.message, /already on the “For Designers” page as “Assets”/);
+  res = await call('drive.add', { url: 'drive.google.com/drive/folders/A' });
+  assert.match(res.error.message, /already on the “For Designers” page\./);
 
-  res = await call('drive.add', { url: 'https://docs.google.com/document/d/B/edit' });   // no label
+  res = await call('drive.add', { url: 'https://docs.google.com/document/d/B/edit' });
   assert.equal(res.ok, true);
   assert.equal(frame.children.length, 3, 'reuses the same frame');
-  assert.equal(frame.children[2].characters, 'Google Doc link');
+  assert.equal(frame.children[2].characters, 'GDrive link to folder');
   assert.equal(page.children.length, 1);
 });
 

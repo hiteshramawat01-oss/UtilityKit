@@ -1,5 +1,9 @@
 /*
- * Google Drive Links — finds Drive / Docs hyperlinks on the "For Designers" page.
+ * Google Drive Links — finds the project's Google Drive link on the "For Designers" page.
+ *
+ * One link per file is all the interface shows: the text link named
+ * "GDrive link to folder" (what the plugin writes), or, in a file where nobody
+ * has added one that way, the first Drive / Docs link on the page.
  *
  * What this can do: read hyperlinks that already exist in this Figma file, open
  * them in the browser, and add new link text to the page.
@@ -13,6 +17,7 @@ UK.drive = (function () {
   var HOSTS = ['drive.google.com', 'docs.google.com'];
   var PD_CONTAINER = 'uk.driveLinks';
   var CONTAINER_NAME = 'Drive Links';
+  var LINK_TEXT = 'GDrive link to folder';     // what every link added from the plugin says on the page
   var URL_IN_TEXT = /https?:\/\/(?:drive|docs)\.google\.com\/[^\s<>"')\]]*/gi;
 
   /** Returns { url, host, path } for a Google Drive/Docs URL, or null. */
@@ -127,15 +132,25 @@ UK.drive = (function () {
     return links;
   }
 
+  /** The one link to show: the text link named "GDrive link to folder", otherwise the first on the page. */
+  function pick(links) {
+    var wanted = LINK_TEXT.toLowerCase();
+    for (var i = 0; i < links.length; i++) {
+      if (UK.collapse(links[i].label).toLowerCase() === wanted) return links[i];
+    }
+    return links.length ? links[0] : null;
+  }
+
   async function scan() {
     var page = findPage();
-    if (!page) return { pageFound: false, pageName: PAGE_NAME, links: [] };
+    if (!page) return { pageFound: false, pageName: PAGE_NAME, link: null, links: [] };
     var links = await collect(page);
     return {
       pageFound: true,
       pageName: page.name,
       pageId: page.id,
       isCurrentPage: figma.currentPage.id === page.id,
+      link: pick(links),
       links: links
     };
   }
@@ -209,7 +224,7 @@ UK.drive = (function () {
     return frame;
   }
 
-  /** payload: { url, label, createPage } */
+  /** payload: { url, createPage }. The link is written on the page as the text "GDrive link to folder". */
   async function add(payload) {
     payload = payload || {};
     var parsed = parseGoogleUrl(payload.url);
@@ -227,12 +242,11 @@ UK.drive = (function () {
     var existing = await collect(page);
     for (var i = 0; i < existing.length; i++) {
       if (existing[i].url === parsed.url) {
-        throw UK.userError('That link is already on the “' + page.name + '” page as “' + existing[i].label + '”.');
+        throw UK.userError('That link is already on the “' + page.name + '” page.');
       }
     }
 
-    var kind = kindOf(parsed);
-    var label = UK.collapse(payload.label) || ('Google ' + kind + ' link');
+    var label = LINK_TEXT;
     var font = await loadAnyFont();
     var container = findContainer(page) || makeContainer(page, font);
 
@@ -295,6 +309,7 @@ UK.drive = (function () {
 
   return {
     PAGE_NAME: PAGE_NAME,
+    LINK_TEXT: LINK_TEXT,
     parseGoogleUrl: parseGoogleUrl,
     kindOf: kindOf,
     findPage: findPage,

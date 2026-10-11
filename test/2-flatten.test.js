@@ -18,7 +18,7 @@ test('summary: reports the image size and what is left out; changes nothing', as
   assert.equal(res.data.usable, 2);
   assert.equal(res.data.skippedCount, 1);
   assert.equal(res.data.skipped[0].reason, 'Layer is hidden');
-  assert.equal(res.data.resultName, '[Print]');
+  assert.equal(res.data.resultName, '[Print Section]');
   assert.deepEqual([res.data.width, res.data.height, res.data.tiles, res.data.tooLarge], [400, 200, 1, false]);
   assert.deepEqual(snapshot(env), before);
 });
@@ -29,7 +29,7 @@ test('summary: nothing selected', async () => {
   assert.deepEqual([res.data.count, res.data.usable, res.data.tiles], [0, 0, 0]);
 });
 
-test('merge: the layers become one image named [Print], in the same place and the same spot in the layer list', async () => {
+test('merge: the layers become one image named [Print Section], in the same place and the same spot in the layer list', async () => {
   const { env, call } = load();
   const art = env.add('FRAME', { name: 'Artboard', x: 100, y: 100, width: 1000, height: 800 });
   const under = env.add('RECTANGLE', { name: 'under', x: 0, y: 0, width: 10, height: 10 }, art);
@@ -43,18 +43,18 @@ test('merge: the layers become one image named [Print], in the same place and th
 
   const res = await call('flatten.run');
   assert.equal(res.ok, true);
-  assert.equal(res.data.name, '[Print]');
+  assert.equal(res.data.name, '[Print Section]');
   assert.deepEqual([res.data.sourceCount, res.data.removed, res.data.keptCount], [2, 2, 0]);
   assert.equal(res.data.created.length, 1);
   assert.deepEqual([res.data.tiles, res.data.tiled], [1, false]);
 
   const img = env.byId[res.data.created[0]];
-  assert.equal(img.name, '[Print]');
+  assert.equal(img.name, '[Print Section]');
   assert.equal(img.type, 'RECTANGLE');
   assert.equal(img.fills[0].type, 'IMAGE');
   // no new layer beside the artboard: the image sits inside it, where the top-most selected layer was
   assert.equal(img.parent, art);
-  assert.deepEqual(art.children.map((c) => c.name), ['under', 'Not selected', '[Print]', 'over']);
+  assert.deepEqual(art.children.map((c) => c.name), ['under', 'Not selected', '[Print Section]', 'over']);
   // union of what was drawn: x 20..390 (the shadow adds 20), y 30..400, inside the artboard
   assert.deepEqual([img.x, img.y, img.width, img.height], [20, 30, 370, 370]);
   assert.deepEqual([img.absoluteBoundingBox.x, img.absoluteBoundingBox.y], [120, 130]);
@@ -77,7 +77,7 @@ test('merge: the layers become one image named [Print], in the same place and th
   assert.equal(env.log.undo, 1);
 });
 
-test('one layer: replaced by [Print], exported straight from the layer', async () => {
+test('one layer: replaced by [Print Section], exported straight from the layer', async () => {
   const { env, call } = load();
   const art = env.add('FRAME', { name: 'Artboard', x: 100, y: 100, width: 1000, height: 800 });
   const a = env.add('RECTANGLE', { name: 'Hero', x: 50, y: 60, width: 200, height: 100 }, art);
@@ -87,9 +87,9 @@ test('one layer: replaced by [Print], exported straight from the layer', async (
   assert.equal(res.ok, true);
   assert.deepEqual([res.data.sourceCount, res.data.removed, res.data.skippedCount], [1, 1, 1]);
   const img = env.byId[res.data.created[0]];
-  assert.equal(img.name, '[Print]');
+  assert.equal(img.name, '[Print Section]');
   assert.deepEqual([img.parent, img.x, img.y, img.width, img.height], [art, 50, 60, 200, 100]);
-  assert.deepEqual(art.children.map((c) => c.name), ['[Print]', 'h']);
+  assert.deepEqual(art.children.map((c) => c.name), ['[Print Section]', 'h']);
   assert.equal(env.log.exports.length, 1);
   assert.equal(env.log.exports[0].nodeId, a.id);
   assert.equal(env.log.exports[0].scale, 1);
@@ -106,7 +106,7 @@ test('top-level frames and layers inside a group are replaced where they are', a
   let img = env.byId[res.data.created[0]];
   assert.equal(img.parent.type, 'PAGE');
   assert.deepEqual([img.x, img.y, img.width, img.height], [500, 40, 300, 200]);
-  assert.deepEqual(env.figma.currentPage.children.map((c) => c.name), ['[Print]', 'Stays']);
+  assert.deepEqual(env.figma.currentPage.children.map((c) => c.name), ['[Print Section]', 'Stays']);
   assert.equal(other.removed, false);
 
   // inside a group inside a frame: positions are relative to the frame
@@ -119,7 +119,7 @@ test('top-level frames and layers inside a group are replaced where they are', a
   res = await call('flatten.run');
   img = env.byId[res.data.created[0]];
   assert.equal(img.parent, group);
-  assert.deepEqual(group.children.map((c) => c.name), ['[Print]', 'r']);
+  assert.deepEqual(group.children.map((c) => c.name), ['[Print Section]', 'r']);
   assert.deepEqual([img.absoluteBoundingBox.x, img.absoluteBoundingBox.y, img.width, img.height], [1010, 1020, 140, 50]);
 });
 
@@ -138,7 +138,7 @@ test('layers from different parents: the image goes where the top-most one was',
   assert.equal(a1.children.length, 0);
 });
 
-test('a result larger than 4096 px becomes pieces in a [Print] group, in place, never shrunk', async () => {
+test('a result larger than 4096 px becomes pieces in a [Print Section] group, in place, never shrunk', async () => {
   const { env, call, UK } = load();
   assert.deepEqual(plain(UK.flatten.tilePlan(1600, 9000)), { tile: 4096, cols: 1, rows: 3, count: 3 });
   const before = env.add('FRAME', { name: 'Before', x: -3000, y: 0, width: 100, height: 100 });
@@ -153,8 +153,8 @@ test('a result larger than 4096 px becomes pieces in a [Print] group, in place, 
   assert.deepEqual([res.data.tiles, res.data.tiled, res.data.created.length], [3, true, 1]);
   const group = env.byId[res.data.created[0]];
   assert.equal(group.type, 'GROUP');
-  assert.equal(group.name, '[Print]');
-  assert.deepEqual(env.figma.currentPage.children.map((c) => c.name), ['Before', '[Print]', 'After']);
+  assert.equal(group.name, '[Print Section]');
+  assert.deepEqual(env.figma.currentPage.children.map((c) => c.name), ['Before', '[Print Section]', 'After']);
   const tiles = group.children;
   assert.deepEqual(tiles.map((t) => t.name), ['Part 1', 'Part 2', 'Part 3']);
   assert.deepEqual(tiles.map((t) => t.height), [4096, 4096, 808]);

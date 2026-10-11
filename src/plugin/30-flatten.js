@@ -1,5 +1,5 @@
 /*
- * Flatten & Merge — turns the selected layers into one image named "[Print]",
+ * Flatten & Merge — turns the selected layers into one image named "[Print Section]",
  * in the same place: the image takes the layers' spot and the layers are removed.
  *
  * Rules this module keeps:
@@ -15,7 +15,7 @@ UK.flatten = (function () {
   var MAX_IMAGE = 4096;
   var MAX_TILES = 36;
   var SCALE = 1;
-  var RESULT_NAME = '[Print]';
+  var RESULT_NAME = '[Print Section]';
   var TEMP_NAME = 'UtilityKit temp (safe to delete)';
 
   function boundsOf(node) {
@@ -249,7 +249,7 @@ UK.flatten = (function () {
     return { node: group, tiles: rects.length, box: box };
   }
 
-  /** Merges the selected layers into one image named "[Print]" that takes their place. */
+  /** Merges the selected layers into one image named "[Print Section]" that takes their place. */
   async function run() {
     var selection = figma.currentPage.selection.slice();
     if (!selection.length) throw UK.userError('Select at least one layer to merge.');
