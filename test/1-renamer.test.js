@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const load = require('./load.js');
 
 const web = (over) => Object.assign({ mode: 'web', phase: 'Mockups', client: 'Acme' }, over);
-const mkt = (over) => Object.assign({ mode: 'marketing', deliverable: 'Meta Ads', task: 'black friday', client: 'Acme' }, over);
+const mkt = (over) => Object.assign({ mode: 'marketing', deliverable: 'Meta Ads', client: 'Acme' }, over);
 const names = (res) => res.data.rows.map((r) => r.proposed);
 
 function scene(pageName) {
@@ -57,14 +57,16 @@ test('guideline: the sample file names come out exactly', async () => {
     env.select([frame('Frame 1', 0, 1440)]);
     assert.deepEqual(names(await call('rename.preview', { settings: web(settings) })), [want]);
   }
-  // Marketing samples
-  for (const [w, h, settings, want] of [
-    [800, 2000, { includeSize: false, deliverable: 'Infographic', task: 'Guide for winter fashion', client: 'Magnolia Boutique', versions: 'r3' }, 'Infographic_GuideForWinterFashion_MagnoliaBoutique_V1R3'],
-    [1080, 1920, { includeSize: false, deliverable: 'IG Reel', task: 'Summer tips', client: 'Megan Mae Miami', versions: '2' }, 'IGReel_SummerTips_MeganMaeMiami_V2'],
-    [1200, 300, { deliverable: 'Google Responsive Ads', task: 'Black Friday Sale', client: 'West Point Home' }, '1200x300_GoogleResponsiveAds_BlackFridaySale_WestPointHome_V1'],
-    [1080, 1920, { deliverable: 'Meta Video Ads', task: 'Prime Day Sale', client: 'House of Savage', versions: 'r1' }, 'V_MetaVideoAds_PrimeDaySale_HouseOfSavage_V1R1']
+  // Marketing: Size_Deliverable_PageType_Client_V1R1. The size is always there, read from the frame;
+  // the page's name stands where the guideline has the specific task; the deliverable is optional.
+  for (const [page, w, h, settings, want] of [
+    ['Guide for winter fashion', 800, 2000, { deliverable: 'Infographic', client: 'Magnolia Boutique', versions: 'r3' }, '800x2000_Infographic_GuideForWinterFashion_MagnoliaBoutique_V1R3'],
+    ['Summer tips', 1080, 1920, { deliverable: 'IG Reel', client: 'Megan Mae Miami', versions: '2' }, 'V_IGReel_SummerTips_MeganMaeMiami_V2'],
+    ['2026-11 - Black Friday Sale', 1200, 300, { deliverable: 'Google Responsive Ads', client: 'West Point Home' }, '1200x300_GoogleResponsiveAds_BlackFridaySale_WestPointHome_V1'],
+    ['Prime Day Sale', 1080, 1920, { deliverable: 'Meta Video Ads', client: 'House of Savage', versions: 'r1' }, 'V_MetaVideoAds_PrimeDaySale_HouseOfSavage_V1R1'],
+    ['Black Friday Sale', 1200, 300, { deliverable: '', client: 'West Point Home' }, '1200x300_BlackFridaySale_WestPointHome_V1']
   ]) {
-    const { env, call, frame } = scene('Ads');
+    const { env, call, frame } = scene(page);
     env.select([frame('Frame 1', 0, w, h)]);
     assert.deepEqual(names(await call('rename.preview', { settings: mkt(settings) })), [want]);
   }
@@ -113,7 +115,7 @@ test('web: device tag comes from the frame width and sits right after the page t
   env.select([frame('a', 0, 1600), frame('b', 2000, 320), frame('c', 3000, 1440)]);
   const res = await call('rename.preview', { settings: web() });
   assert.deepEqual(names(res), ['Homepage_Desktop_Mockups_Acme_V1', 'Homepage_Mobile_Mockups_Acme_V1', 'Homepage_Mockups_Acme_V1']);
-  assert.deepEqual(res.data.summary, { desktop: 1, mobile: 1, otherWidth: 1 });
+  assert.deepEqual(JSON.parse(JSON.stringify(res.data.summary)), { desktop: 1, mobile: 1, otherWidth: 1, sizes: [] });
   assert.deepEqual(res.data.rows.map((r) => r.note), ['', '', '1440 px wide — no Desktop / Mobile tag']);
 });
 
@@ -238,27 +240,41 @@ test('reading a version out of an existing name', () => {
 
 // ── Marketing ────────────────────────────────────────────────────────────────
 
-test('marketing: size is read from each frame; same-size frames are numbered', async () => {
-  const { env, call, frame } = scene('Ads');
+test('marketing: same layout as web — page type from the page, size from each frame, numbered per size', async () => {
+  const { env, call, frame } = scene('2026-11 - Black Friday');
   const sq1 = frame('a', 0, 1080, 1080), sq2 = frame('b', 1200, 1080, 1080), wide = frame('c', 2400, 1200, 628), frac = frame('d', 4000, 1199.6, 627.5);
   env.select([wide, sq2, sq1, frac]);
-  const res = await call('rename.preview', { settings: mkt() });
+  let res = await call('rename.preview', { settings: mkt() });
   assert.deepEqual(names(res), [
     '1080x1080_MetaAds_BlackFriday_Acme_V1',
     '1080x1080_MetaAds_BlackFriday_Acme_V2',
     '1200x628_MetaAds_BlackFriday_Acme_V1',
     '1200x628_MetaAds_BlackFriday_Acme_V2'
   ]);
+  assert.equal(res.data.pageType, 'BlackFriday');
+  assert.equal(res.data.autoPageType, 'BlackFriday');
+  assert.deepEqual(JSON.parse(JSON.stringify(res.data.summary.sizes)), [{ size: '1080x1080', count: 2 }, { size: '1200x628', count: 2 }]);
   assert.equal(res.data.rows[0].device, '', 'no Desktop / Mobile tag in marketing names');
   assert.equal(res.data.rows[0].note, '');
+
+  // the page type can be typed over, exactly as in web
+  res = await call('rename.preview', { settings: mkt({ pageType: 'cyber monday' }) });
+  assert.equal(names(res)[0], '1080x1080_MetaAds_CyberMonday_Acme_V1');
 });
 
-test('marketing: size can be left out, variation goes last, video sizes use the letter codes', async () => {
-  const { UK, env, call, frame } = scene('Ads');
+test('marketing: the deliverable is optional; size is always there; nothing else is asked', async () => {
+  const { UK, env, call, frame } = scene('Black Friday');
   env.select([frame('a', 0, 1080, 1080)]);
-  assert.deepEqual(names(await call('rename.preview', { settings: mkt({ includeSize: false }) })), ['MetaAds_BlackFriday_Acme_V1']);
-  assert.deepEqual(names(await call('rename.preview', { settings: mkt({ variation: 'a', versions: 'r2' }) })), ['1080x1080_MetaAds_BlackFriday_Acme_V1R2_A']);
-  assert.deepEqual(names(await call('rename.preview', { settings: mkt({ task: 'The 5 tips for a sale' }) })), ['1080x1080_MetaAds_5TipsForSale_Acme_V1']);
+  assert.deepEqual(names(await call('rename.preview', { settings: mkt({ deliverable: '' }) })), ['1080x1080_BlackFriday_Acme_V1']);
+  assert.deepEqual(names(await call('rename.preview', { settings: mkt({ deliverable: '  ' }) })), ['1080x1080_BlackFriday_Acme_V1']);
+  assert.deepEqual(names(await call('rename.preview', { settings: mkt({ deliverable: 'email banner', versions: 'r2' }) })), ['1080x1080_EmailBanner_BlackFriday_Acme_V1R2']);
+  // what older versions could save is ignored: the size cannot be switched off, there is no task or variation
+  assert.deepEqual(names(await call('rename.preview', { settings: mkt({ includeSize: false, task: 'Old task', variation: 'B' }) })), ['1080x1080_MetaAds_BlackFriday_Acme_V1']);
+  const d = UK.naming.defaults();
+  assert.deepEqual(Object.keys(d).sort(), ['client', 'deliverable', 'mode', 'pageType', 'phase', 'versions']);
+  // a marketing frame already named the old way keeps its version
+  env.select([frame('1080x1080_MetaAds_Sale_Acme_V3R1_B', 5000, 1080, 1080)]);
+  assert.deepEqual(names(await call('rename.preview', { settings: mkt() })), ['1080x1080_MetaAds_BlackFriday_Acme_V3R1']);
 
   const size = UK.naming.sizeFor;
   assert.equal(size(1080, 1920, 'MetaVideoAds'), 'V');
@@ -266,6 +282,7 @@ test('marketing: size can be left out, variation goes last, video sizes use the 
   assert.equal(size(1080, 1350, 'IGReel'), 'P');
   assert.equal(size(1080, 1080, 'IGReel'), 'S');
   assert.equal(size(1080, 1080, 'MetaAds'), '1080x1080', 'only for video deliverables');
+  assert.equal(size(1080, 1920, ''), '1080x1920', 'no deliverable typed: the plain size');
   assert.equal(size(1000, 1000, 'MetaVideoAds'), '1000x1000', 'only for the four standard video sizes');
   assert.equal(size(0, 100, 'MetaAds'), '');
 });
@@ -279,13 +296,15 @@ test('required parts: the preview says what is missing and nothing can be applie
   const err = async (settings) => (await call('rename.preview', { settings })).data;
   assert.match((await err(web({ client: '  ' }))).error, /Add the client name/);
   assert.match((await err(web({ client: '-- / --' }))).error, /Add the client name/);
-  assert.match((await err(mkt({ deliverable: '' }))).error, /Add the deliverable type/);
-  assert.match((await err(mkt({ task: ' - ' }))).error, /Add the specific task/);
+  assert.match((await err(mkt({ client: '' }))).error, /Add the client name/);
+  assert.equal((await err(mkt({ deliverable: '' }))).error, '', 'marketing needs nothing typed but the client');
   const p = await err(web({ client: '' }));
   assert.deepEqual([p.counts.willRename, p.rows[0].proposed], [0, 'Frame 1']);
 
   env.figma.currentPage.name = '2026-05';
   assert.match((await err(web())).error, /can’t be used as a page type/);
+  assert.match((await err(mkt())).error, /can’t be used in the name\. Type a page name\./);
+  assert.equal((await err(mkt({ pageType: 'Black Friday' }))).error, '');
   assert.equal((await err(web({ pageType: 'Homepage' }))).error, '');
 
   env.figma.currentPage.name = 'Homepage';
@@ -395,12 +414,12 @@ test('settings: saved per designer; one-off choices and the client are not carri
   assert.equal(init.data.settings.renamer.mode, 'web');
   assert.deepEqual(init.data.naming.phases, ['Wireframes', 'Mockups']);
 
-  await call('settings.save', { renamer: web({ client: 'Typed In Another File', mode: 'marketing', deliverable: 'MetaAds', pageType: 'Override', versions: '4r2', variation: 'B' }), flatten: { scale: 3 } });
+  await call('settings.save', { renamer: web({ client: 'Typed In Another File', mode: 'marketing', deliverable: 'MetaAds', pageType: 'Override', versions: '4r2' }), flatten: { scale: 3 } });
   init = await call('init');
   const r = init.data.settings.renamer;
   assert.deepEqual([r.mode, r.deliverable], ['marketing', 'MetaAds']);
   assert.equal(r.client, '', 'a client never follows the designer into another file');
-  assert.deepEqual([r.pageType, r.versions, r.variation], ['', '', ''], 'one-off choices start fresh');
+  assert.deepEqual([r.pageType, r.versions], ['', ''], 'one-off choices start fresh');
   assert.equal(init.data.settings.flatten, undefined, 'Flatten & Merge has nothing to remember');
   assert.equal(env.figma.root.getPluginData('utilitykit.file.v1'), '', 'typing alone never writes to the file');
 
@@ -408,7 +427,7 @@ test('settings: saved per designer; one-off choices and the client are not carri
   env.select([a]);
   const settings = web({ client: 'Acme', phase: 'Wireframes' });
   await call('rename.run', { settings });
-  assert.deepEqual(JSON.parse(env.figma.root.getPluginData('utilitykit.file.v1')), { client: 'Acme', phase: 'Wireframes', mode: 'web', deliverable: '', task: '' });
+  assert.deepEqual(JSON.parse(env.figma.root.getPluginData('utilitykit.file.v1')), { client: 'Acme', phase: 'Wireframes', mode: 'web', deliverable: '' });
 
   // this file restores its own client and phase whatever was used elsewhere since
   await call('settings.save', { renamer: web({ client: 'Other Client', phase: 'Mockups' }) });
@@ -466,12 +485,12 @@ test('client: asked once, saved in the file, shared by Web and Marketing', async
   const client = init.data.settings.renamer.client;
   env.select([frame('a', 0, 1600), frame('b', 3000, 1080, 1080)]);
   assert.match(names(await call('rename.preview', { settings: web({ client, phase: '' }) }))[0], /^Homepage_Desktop_AllfitAutomotiveAndParts_V1$/);
-  assert.match(names(await call('rename.preview', { settings: mkt({ client }) }))[1], /^1080x1080_MetaAds_BlackFriday_AllfitAutomotiveAndParts_V1$/);
+  assert.match(names(await call('rename.preview', { settings: mkt({ client }) }))[1], /^1080x1080_MetaAds_Homepage_AllfitAutomotiveAndParts_V1$/);
 
   // changing it keeps the other things the file remembers
   await call('rename.run', { settings: web({ client, phase: 'Mockups' }) });
   await call('client.set', { client: 'New Name' });
-  assert.deepEqual(JSON.parse(env.figma.root.getPluginData('utilitykit.file.v1')), { client: 'New Name', phase: 'Mockups', mode: 'web', deliverable: '', task: '' });
+  assert.deepEqual(JSON.parse(env.figma.root.getPluginData('utilitykit.file.v1')), { client: 'New Name', phase: 'Mockups', mode: 'web', deliverable: '' });
 });
 
 test('rename in one click: names and applies the current selection', async () => {
@@ -502,17 +521,18 @@ test('settings: reset puts this designer back to defaults and leaves the file al
   const { env, call, UK, frame } = scene();
   const a = frame('a', 0, 1600);
   env.select([a]);
-  const settings = web({ client: 'Acme', includeSize: false });
+  const settings = web({ client: 'Acme', deliverable: 'Email Banner' });
   const pre = await call('rename.preview', { settings });
   await call('rename.apply', { settings, expected: pre.data.expected });
   let init = await call('init');
-  assert.equal(init.data.settings.renamer.includeSize, false);
+  assert.equal(init.data.settings.renamer.deliverable, 'Email Banner');
 
   const res = await call('settings.reset');
   assert.equal(JSON.stringify(res.data.renamer), JSON.stringify(UK.naming.defaults()));
   assert.equal(a.name, 'Homepage_Desktop_Mockups_Acme_V1', 'reset never touches layers');
 
   init = await call('init');
-  assert.equal(init.data.settings.renamer.includeSize, true);
+  assert.equal(init.data.settings.renamer.deliverable, 'Email Banner', 'the deliverable is one of the choices the file itself remembers');
+  assert.equal(JSON.parse(env.storage['utilitykit.settings.v1']).renamer.deliverable, '', 'but this designer\'s own saved choices are back to defaults');
   assert.equal(init.data.settings.renamer.client, 'Acme', 'the file still remembers its own client');
 });

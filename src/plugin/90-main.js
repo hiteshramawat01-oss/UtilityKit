@@ -6,7 +6,7 @@
 (function () {
   var STORAGE_KEY = 'utilitykit.settings.v1';   // per designer, across files
   var FILE_KEY = 'utilitykit.file.v1';          // per file: client and the other project-level naming choices
-  var FILE_FIELDS = ['client', 'phase', 'mode', 'deliverable', 'task'];
+  var FILE_FIELDS = ['client', 'phase', 'mode', 'deliverable'];
   var SIZE = { width: 360, height: 600, minW: 300, maxW: 560, minH: 440, maxH: 900 };
 
   function readFileData() {
@@ -81,7 +81,7 @@
         install: UK.updates.installInfo(),
         settings: await loadSettings(),
         selection: selectionInfo(),
-        naming: { phases: UK.naming.PHASES, deliverables: UK.naming.DELIVERABLES, variations: UK.naming.VARIATIONS, devices: UK.naming.DEVICES }
+        naming: { phases: UK.naming.PHASES, devices: UK.naming.DEVICES }
       };
     },
     'settings.save': saveSettings,

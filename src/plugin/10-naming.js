@@ -3,16 +3,15 @@
  * Implements the team's file naming guideline:
  *
  *   Web:        PageType_Device_DesignPhase_ClientName_V1R1
- *   Marketing:  Size_DeliverableType_SpecificTask_ClientName_V1R1_Variation
+ *   Marketing:  Size_DeliverableType_PageType_ClientName_V1R1
  *
- * Parts that don't apply are left out. Every part is written without spaces,
+ * In both, PageType is read from the Figma page's name (in Marketing it stands
+ * where the guideline has the specific task). Parts that don't apply are left out. Every part is written without spaces,
  * dashes or symbols ("All-fit Automotive & Parts" -> "AllfitAutomotiveAndParts").
  * The preview and Apply both use plan(), so they can never disagree.
  */
 UK.naming = (function () {
   var PHASES = ['Wireframes', 'Mockups'];
-  var DELIVERABLES = ['MetaAds', 'GoogleAds', 'MetaVideoAds', 'EmailBanner', 'EmailTemplate', 'IGCarousel', 'IGReel', 'Infographic'];
-  var VARIATIONS = ['A', 'B', 'CMYK', 'RGB', 'Logo', 'Image', 'Alt', 'Transparent'];
   // Frame width decides the device tag (Web only).
   var DEVICES = [{ width: 1600, tag: 'Desktop' }, { width: 320, tag: 'Mobile' }];
   // Short size codes the guideline allows for video deliverables.
@@ -22,13 +21,10 @@ UK.naming = (function () {
   function defaults() {
     return {
       mode: 'web',              // 'web' | 'marketing'
-      pageType: '',             // '' = read it from the Figma page name
-      phase: '',                // '' | 'Wireframes' | 'Mockups'
+      pageType: '',             // '' = read it from the Figma page name (Web and Marketing alike)
+      phase: '',                // Web: '' | 'Wireframes' | 'Mockups'
       client: '',
-      deliverable: '',
-      task: '',
-      variation: '',
-      includeSize: true,
+      deliverable: '',          // Marketing, optional: e.g. "MetaAds"
       versions: ''              // '' = automatic; otherwise what the designer typed: "2", "1r1", "r2", "1, 2, 3"
     };
   }
@@ -53,9 +49,6 @@ UK.naming = (function () {
     d.phase = oneOf(raw.phase, PHASES, '');
     d.client = text(raw.client);
     d.deliverable = text(raw.deliverable);
-    d.task = text(raw.task);
-    d.variation = text(raw.variation);
-    if (typeof raw.includeSize === 'boolean') d.includeSize = raw.includeSize;
     d.versions = text(raw.versions);
     return d;
   }
@@ -69,7 +62,6 @@ UK.naming = (function () {
     var s = normalize(raw), d = defaults();
     s.client = d.client;
     s.pageType = d.pageType;
-    s.variation = d.variation;
     s.versions = d.versions;
     return s;
   }
@@ -217,11 +209,10 @@ UK.naming = (function () {
 
   /** '' when the settings can produce a name, otherwise what is missing. */
   function validate(settings, pageType) {
-    if (settings.mode === 'marketing') {
-      if (!compact(settings.deliverable)) return 'Add the deliverable type, for example MetaAds.';
-      if (!compact(settings.task, true)) return 'Add the specific task, for example BlackFriday.';
-    } else if (!pageType) {
-      return 'This page’s name can’t be used as a page type. Type one in.';
+    if (!pageType) {
+      return settings.mode === 'marketing'
+        ? 'This page’s name can’t be used in the name. Type a page name.'
+        : 'This page’s name can’t be used as a page type. Type one in.';
     }
     if (!compact(settings.client)) return 'Add the client name.';
     return '';
@@ -251,7 +242,8 @@ UK.naming = (function () {
     var error = validate(settings, pageType);
     var marketing = settings.mode === 'marketing';
     var client = compact(settings.client);
-    var summary = { desktop: 0, mobile: 0, otherWidth: 0 };
+    var summary = { desktop: 0, mobile: 0, otherWidth: 0, sizes: [] };
+    var sizeIndex = {};
 
     // Left to right, then top to bottom: the order versions are handed out in, and the order shown.
     var order = [];
@@ -270,11 +262,16 @@ UK.naming = (function () {
       var before = [], after = [], note = '';
       var device = '', size = '';
       if (marketing) {
-        size = settings.includeSize ? sizeFor(item.width, item.height, compact(settings.deliverable)) : '';
-        if (size) before.push(size);
-        before.push(compact(settings.deliverable), compact(settings.task, true), client);
-        var variation = compact(settings.variation);
-        if (variation) after.push(variation);
+        // Size_Deliverable_PageType_Client: the size always, read from the frame; the deliverable only if typed.
+        var deliverable = compact(settings.deliverable);
+        size = sizeFor(item.width, item.height, deliverable);
+        if (size) {
+          before.push(size);
+          if (sizeIndex[size] === undefined) { sizeIndex[size] = summary.sizes.length; summary.sizes.push({ size: size, count: 0 }); }
+          summary.sizes[sizeIndex[size]].count++;
+        }
+        if (deliverable) before.push(deliverable);
+        before.push(pageType, client);
       } else {
         device = deviceFor(item.width);
         if (device === 'Desktop') summary.desktop++;
@@ -368,8 +365,6 @@ UK.naming = (function () {
 
   return {
     PHASES: PHASES,
-    DELIVERABLES: DELIVERABLES,
-    VARIATIONS: VARIATIONS,
     DEVICES: DEVICES,
     defaults: defaults,
     normalize: normalize,

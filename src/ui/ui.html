@@ -20,7 +20,6 @@
     </div>
     <h1 class="bar-title" id="title" hidden></h1>
     <div class="pill" id="selPill" title="Layers selected on the canvas" hidden><span class="dot"></span><span id="selText">0 selected</span></div>
-    <button class="icon-btn" id="openSettings" type="button" aria-label="Settings" title="Settings"><i data-icon="settings"></i></button>
   </header>
 
   <main class="main">
@@ -51,7 +50,7 @@
           <span class="badge">Coming soon</span>
         </div>
       </div>
-      <div class="foot"><span id="version"></span></div>
+      <div class="foot"><span id="version"></span><button class="linkish" type="button" id="updCheck">Check for updates</button></div>
     </section>
 
     <!-- ───────────── Layer Renamer ───────────── -->
@@ -86,28 +85,22 @@
             <label class="radio"><input type="radio" name="rnMode" value="marketing"><span class="ring"></span><span>Marketing</span></label>
           </div>
 
-          <div class="rows" id="rnWeb">
-            <label class="frow"><span class="frow-label">Page type</span>
+          <!-- Web and Marketing share one layout: page type, what is read from the frames, one optional part, version. -->
+          <div class="rows">
+            <label class="frow"><span class="frow-label" id="rnPageLabel">Page type</span>
               <input class="input" id="rnPageType" type="text" maxlength="80" autocomplete="off" spellcheck="false"></label>
             <p class="frow-hint" id="rnPageHint"></p>
-            <div class="frow"><span class="frow-label">Device</span><span class="frow-value" id="rnDevices"></span></div>
-            <div class="frow"><span class="frow-label">Design phase</span>
+            <div class="frow" id="rnDeviceRow"><span class="frow-label">Device</span><span class="frow-value" id="rnDevices"></span></div>
+            <div class="frow" id="rnSizeRow" hidden><span class="frow-label">Size</span><span class="frow-value" id="rnSizes"></span></div>
+            <div class="frow" id="rnPhaseRow"><span class="frow-label">Design phase</span>
               <div class="seg" id="rnPhase" role="radiogroup" aria-label="Design phase">
                 <button type="button" data-value="">None</button>
                 <button type="button" data-value="Wireframes">Wireframes</button>
                 <button type="button" data-value="Mockups">Mockups</button>
               </div>
             </div>
-          </div>
-
-          <div class="rows" id="rnMarketing" hidden>
-            <label class="check"><input type="checkbox" id="rnIncludeSize"><span class="box"></span><span>Start with the size, read from each frame</span></label>
-            <label class="frow"><span class="frow-label">Deliverable</span>
-              <input class="input" id="rnDeliverable" type="text" list="rnDeliverables" placeholder="e.g. MetaAds" maxlength="80" autocomplete="off" spellcheck="false"></label>
-            <label class="frow"><span class="frow-label">Specific task</span>
-              <input class="input" id="rnTask" type="text" placeholder="e.g. Black Friday" maxlength="80" autocomplete="off"></label>
-            <label class="frow"><span class="frow-label">Variation</span>
-              <input class="input" id="rnVariation" type="text" list="rnVariations" placeholder="Optional, e.g. A" maxlength="40" autocomplete="off" spellcheck="false"></label>
+            <label class="frow" id="rnDeliverableRow" hidden><span class="frow-label">Deliverable</span>
+              <input class="input" id="rnDeliverable" type="text" placeholder="Optional, e.g. MetaAds" maxlength="80" autocomplete="off" spellcheck="false"></label>
           </div>
 
           <label class="frow"><span class="frow-label">Version</span>
@@ -158,38 +151,6 @@
             <p><b>It can’t</b> see inside Google Drive. It doesn’t check that a link works or who has access, and it never uploads, downloads or syncs files. The plugin never contacts Google.</p>
           </div>
         </details>
-      </div>
-    </section>
-
-    <!-- ───────────── Settings ───────────── -->
-    <section class="screen" data-screen="settings" hidden>
-      <div class="scroll">
-        <div class="card">
-          <div class="card-head"><h2>Updates</h2><span class="hint" id="stVersion"></span></div>
-          <p class="card-text">Checks the UtilityKit repository on GitHub for a newer version and can install it here. It only runs when you press the button.</p>
-          <p class="card-text" id="stSource" hidden></p>
-          <div class="quick">
-            <button class="btn small" type="button" id="stCheck">Check for updates</button>
-            <button class="btn small" type="button" id="stRepo"><i data-icon="open"></i>View on GitHub</button>
-          </div>
-          <button class="btn small" type="button" id="stRemove" hidden></button>
-          <div id="stUpdBox" hidden></div>
-        </div>
-
-        <div class="card">
-          <div class="card-head"><h2>Saved settings</h2></div>
-          <p class="card-text">Your Layer Renamer choices are remembered on this computer. The client is remembered inside each file.</p>
-          <button class="btn small" type="button" id="stReset">Reset my settings</button>
-          <div class="note warn" id="stResetConfirm" hidden>
-            <div class="note-body">
-              <span>Put the naming format and options back to their defaults? Files keep their own client, phase and version.</span>
-              <div class="note-btns">
-                <button class="btn small" type="button" id="stResetCancel">Cancel</button>
-                <button class="btn small danger" type="button" id="stResetYes">Reset</button>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
     </section>
 

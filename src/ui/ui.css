@@ -88,7 +88,8 @@ i[data-icon] { display: inline-flex; width: 16px; height: 16px; flex: none; }
 .scroll::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; border: 2px solid var(--bg); }
 .actions { flex: none; display: flex; gap: 8px; padding: 10px 12px; background: var(--surface); border-top: 1px solid var(--border); }
 .foot { flex: none; display: flex; justify-content: space-between; padding: 8px 14px 10px; color: var(--faint); font-size: 10.5px; }
-.foot { align-items: center; justify-content: center; }
+.foot { align-items: center; }
+.foot .linkish { font-size: 11px; }
 .linkish { border: 0; background: transparent; padding: 2px 0; font-size: 10.5px; color: var(--accent-text); cursor: pointer; font-weight: 550; border-radius: 4px; }
 .linkish:hover { text-decoration: underline; }
 .linkish:disabled { color: var(--faint); cursor: default; text-decoration: none; }
@@ -289,3 +290,6 @@ html.figma-dark .toast.error { background: #D9473E; color: #fff; }
   .hint { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation-duration: 0s !important; } }
+
+/* Names and sizes are shown letter for letter: no automatic × between digits. */
+.example-name, .frow-value, .link-url, .input { font-variant-ligatures: no-contextual; font-feature-settings: "calt" 0; }

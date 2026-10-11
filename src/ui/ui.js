@@ -24,7 +24,6 @@
     info: '<circle cx="8" cy="8" r="5.5"/><path d="M8 7.3v3.4M8 5.2v.1"/>',
     warn: '<path d="M8 2.6 14 13H2L8 2.6ZM8 6.6v3M8 11.3v.1"/>',
     success: '<circle cx="8" cy="8" r="5.5"/><path d="m5.6 8.2 1.7 1.7 3.1-3.4"/>',
-    settings: '<g transform="scale(.6667)" stroke-width="2.25"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></g>'
   };
 
   function svg(name) {
@@ -113,7 +112,7 @@
     installing: false
   };
 
-  var TITLES = { renamer: 'Layer Renamer', flatten: 'Flatten & Merge', drive: 'Google Drive Links', settings: 'Settings' };
+  var TITLES = { renamer: 'Layer Renamer', flatten: 'Flatten & Merge', drive: 'Google Drive Links' };
   var PARENT = { renamer: 'home', flatten: 'home', drive: 'home' };
 
   // ── toast / notes ───────────────────────────────────────────────────────
@@ -156,8 +155,6 @@
   // ── navigation ──────────────────────────────────────────────────────────
 
   function go(screen) {
-    // Settings can be opened from anywhere; remember where to go back to.
-    if (screen === 'settings' && state.screen !== 'settings') state.settingsFrom = state.screen;
     state.screen = screen;
     $('app').setAttribute('data-screen', screen);
     var screens = document.querySelectorAll('.screen');
@@ -167,10 +164,8 @@
     $('brand').hidden = !home;
     $('title').hidden = home;
     $('title').textContent = TITLES[screen] || '';
-    $('openSettings').hidden = !home;                       // Settings is reached from Home only
     $('selPill').hidden = !(screen === 'renamer' || screen === 'flatten');     // only where the selection is what gets changed
     $('toast').hidden = true;
-    if (screen === 'settings') { $('stResetConfirm').hidden = true; $('stReset').hidden = false; renderUpdate(); }
     if (screen === 'renamer') enterRenamer();
     if (screen === 'flatten') { state.flatten.result = null; refreshSummary(); }
     if (screen === 'drive') scanDrive();
@@ -180,7 +175,6 @@
 
   function goBack() {
     if (state.screen === 'renamer' && state.askingClient && state.settings.client) { showClientAsk(false); return; }
-    if (state.screen === 'settings') { go(state.settingsFrom || 'home'); return; }
     go(PARENT[state.screen] || 'home');
   }
 
@@ -233,13 +227,6 @@
     }
   }
 
-  function fillList(id, values) {
-    var list = $(id);
-    if (!list) { list = h('datalist', { id: id }); document.body.appendChild(list); }
-    clear(list);
-    (values || []).forEach(function (v) { list.appendChild(h('option', { value: v })); });
-  }
-
   /** Puts the saved choices into the Layer Renamer controls. */
   function renderRenamerOptions() {
     var s = state.settings;
@@ -247,15 +234,16 @@
     var modeRadios = document.getElementsByName('rnMode');
     for (var mr = 0; mr < modeRadios.length; mr++) modeRadios[mr].checked = modeRadios[mr].value === s.mode;
     $('rnClientName').textContent = s.client;
-    $('rnWeb').hidden = marketing;
-    $('rnMarketing').hidden = !marketing;
+    // Same layout for both; only the two middle rows differ. The first box is the same one, named for what it is in each.
+    $('rnPageLabel').textContent = marketing ? 'Page name' : 'Page type';
+    $('rnDeviceRow').hidden = marketing;
+    $('rnPhaseRow').hidden = marketing;
+    $('rnSizeRow').hidden = !marketing;
+    $('rnDeliverableRow').hidden = !marketing;
 
     $('rnPageType').value = s.pageType || state.autoPageType || '';
     setSeg($('rnPhase'), s.phase);
-    $('rnIncludeSize').checked = s.includeSize;
     $('rnDeliverable').value = s.deliverable;
-    $('rnTask').value = s.task;
-    $('rnVariation').value = s.variation;
 
     $('rnVersions').value = state.versionsEdited ? s.versions : (state.versionsAuto || '');
   }
@@ -267,6 +255,14 @@
     if (summary.mobile) bits.push(summary.mobile + ' Mobile');
     if (summary.otherWidth) bits.push(summary.otherWidth + ' other width (no tag)');
     return bits.join(' · ');
+  }
+
+  function sizesText(summary, selected) {
+    if (!selected) return 'Read from each frame';
+    var sizes = summary.sizes || [];
+    var shown = sizes.slice(0, 3).map(function (s) { return s.size; });
+    if (sizes.length > 3) shown.push('+' + (sizes.length - 3) + ' more');
+    return shown.join(' · ');
   }
 
   function refreshExample() {
@@ -281,13 +277,15 @@
       // what was read from the page and the selection
       state.autoPageType = p.autoPageType || '';
       var pageInput = $('rnPageType');
-      pageInput.placeholder = p.autoPageType || 'Type a page type';
+      var pageWord = p.mode === 'marketing' ? 'page name' : 'page type';
+      pageInput.placeholder = p.autoPageType || 'Type a ' + pageWord;
       // Show the page's own name in the box unless the designer typed something else.
       if (!state.settings.pageType && document.activeElement !== pageInput) pageInput.value = state.autoPageType;
       $('rnPageHint').textContent = p.autoPageType
         ? 'Read from this page, “' + p.pageName + '”. Type here to change it.'
-        : 'The page “' + p.pageName + '” has no usable name. Type a page type.';
+        : 'The page “' + p.pageName + '” has no usable name. Type a ' + pageWord + '.';
       $('rnDevices').textContent = devicesText(p.summary, p.counts.selected);
+      $('rnSizes').textContent = sizesText(p.summary, p.counts.selected);
       // The Version box shows what the frames would get until the designer types something else.
       state.versionsAuto = p.versionsAuto || '';
       var versionInput = $('rnVersions');
@@ -659,7 +657,7 @@
       state.update = res;
       state.updateDismissed = false;
       renderUpdate();
-      if (res.updateAvailable) { $('toast').hidden = true; $(state.screen === 'settings' ? 'stUpdBox' : 'updBox').scrollIntoView({ block: 'nearest' }); }
+      if (res.updateAvailable) { $('toast').hidden = true; $('updBox').scrollIntoView({ block: 'nearest' }); }
       else if (res.ahead) toast('You\u2019re on v' + res.current + ', newer than the published v' + res.latest + '.');
       else toast('You\u2019re up to date (v' + res.current + ').');
     }).catch(function (err) { finish(); fail(err); });
@@ -671,13 +669,9 @@
     }).catch(fail);
   }
 
+  /** The update notice sits at the top of Home, where "Check for updates" is pressed. */
   function renderUpdate() {
-    renderUpdateInto($('updBox'));
-    renderUpdateInto($('stUpdBox'));
-  }
-
-  function renderUpdateInto(box) {
-    clear(box);
+    var box = clear($('updBox'));
     var u = state.update;
     if (!u || !u.updateAvailable || state.updateDismissed) { box.hidden = true; return; }
     var later = h('button', { class: 'btn small', type: 'button', disabled: state.installing, onclick: function () { state.updateDismissed = true; renderUpdate(); } }, 'Later');
@@ -691,8 +685,7 @@
         h('div', { class: 'note-btns' },
           h('button', { class: 'btn small primary' + (state.installing ? ' busy' : ''), type: 'button', disabled: state.installing, 'data-act': 'install', onclick: installUpdate },
             state.installing ? 'Updating…' : 'Update now'),
-          later),
-        h('button', { class: 'linkish', type: 'button', 'data-act': 'download', onclick: function () { openUpdate('download', u.downloadUrl); } }, 'Get the files instead'));
+          later));
     } else {
       extra = h('div', { class: 'note-body' },
         h('p', null, 'You have v' + u.current + '.' + (u.released ? ' Released ' + u.released + '.' : '')),
@@ -731,56 +724,11 @@
     });
   }
 
-  /** Drops the downloaded update and goes back to the copy in the plugin folder. */
-  function removeUpdate() {
-    var btn = $('stRemove');
-    btn.disabled = true;
-    call('update.remove').then(function () {
-      toast('Going back to v' + state.install.bundledVersion + '…');
-      return call('update.restart');
-    }).catch(function (err) { btn.disabled = false; fail(err); });
-  }
-
-  function renderInstall() {
-    var inst = state.install || { source: 'bundled' };
-    var downloaded = inst.source === 'downloaded';
-    $('stVersion').textContent = 'Installed: v' + state.version;
-    $('stSource').hidden = !downloaded;
-    $('stRemove').hidden = !downloaded;
-    if (downloaded) {
-      $('stSource').textContent = 'This version was installed with Update now. The plugin folder still holds v' + inst.bundledVersion + '.';
-      $('stRemove').textContent = 'Go back to v' + inst.bundledVersion;
-    }
-  }
-
-  // ── Settings ────────────────────────────────────────────────────────────
-
-  function resetSettings() {
-    var btn = $('stResetYes');
-    btn.disabled = true;
-    call('settings.reset').then(function (fresh) {
-      btn.disabled = false;
-      var client = state.settings.client;        // the client belongs to the file, not to these settings
-      state.settings = fresh.renamer;
-      state.settings.client = client;
-      renderRenamerOptions();
-      $('stResetConfirm').hidden = true;
-      $('stReset').hidden = false;
-      toast('Settings reset to defaults');
-    }).catch(function (err) { btn.disabled = false; fail(err); });
-  }
-
   // ── wiring ──────────────────────────────────────────────────────────────
 
   function bind() {
     $('back').addEventListener('click', goBack);
-    $('openSettings').addEventListener('click', function () { go('settings'); });
-    $('stCheck').addEventListener('click', function () { checkUpdates('stCheck'); });
-    $('stRepo').addEventListener('click', function () { openUpdate('page'); });
-    $('stReset').addEventListener('click', function () { $('stReset').hidden = true; $('stResetConfirm').hidden = false; });
-    $('stResetCancel').addEventListener('click', function () { $('stResetConfirm').hidden = true; $('stReset').hidden = false; });
-    $('stResetYes').addEventListener('click', resetSettings);
-    $('stRemove').addEventListener('click', removeUpdate);
+    $('updCheck').addEventListener('click', function () { checkUpdates('updCheck'); });
     var tools = document.querySelectorAll('[data-go]');
     for (var i = 0; i < tools.length; i++) {
       tools[i].addEventListener('click', function (e) { go(e.currentTarget.getAttribute('data-go')); });
@@ -814,14 +762,7 @@
     $('rnPageType').addEventListener('blur', function (e) {
       if (!state.settings.pageType) e.target.value = state.autoPageType || '';
     });
-    var typed = { rnDeliverable: 'deliverable', rnTask: 'task', rnVariation: 'variation' };
-    Object.keys(typed).forEach(function (id) {
-      $(id).addEventListener('input', function (e) { state.settings[typed[id]] = e.target.value; settingsChanged(); });
-    });
-    var ticks = { rnIncludeSize: 'includeSize' };
-    Object.keys(ticks).forEach(function (id) {
-      $(id).addEventListener('change', function (e) { state.settings[ticks[id]] = e.target.checked; renderRenamerOptions(); settingsChanged(); });
-    });
+    $('rnDeliverable').addEventListener('input', function (e) { state.settings.deliverable = e.target.value; settingsChanged(); });
     // Version: the box shows what the frames would get; typing replaces it.
     $('rnVersions').addEventListener('input', function (e) {
       var v = e.target.value;
@@ -871,13 +812,10 @@
     renderSelection();
     call('init').then(function (data) {
       state.settings = data.settings.renamer;
-      fillList('rnDeliverables', data.naming && data.naming.deliverables);
-      fillList('rnVariations', data.naming && data.naming.variations);
       state.selection = data.selection;
       $('version').textContent = 'v' + data.version;
       state.version = data.version;
       state.install = data.install || null;
-      renderInstall();
       renderSelection();
       renderRenamerOptions();
       if (state.install && state.install.note) toast(state.install.note, true);
