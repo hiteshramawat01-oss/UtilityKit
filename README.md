@@ -62,18 +62,14 @@ No link yet? Paste it in the box and press **Add link**. It is written on that p
 
 The plugin only reads the link written in the Figma file. It never looks inside Google Drive.
 
-## Updating
+## Getting a new version
 
-1. On the Home screen, press **Check for updates** (bottom right).
-2. If there is a new version, press **Update now**. The plugin reloads by itself.
-
-Updating does not change your Figma files. A new version can take a few minutes to show up after it is published.
+The plugin does not update itself. When there is a new version, replace the files in your plugin folder with the new ones. Figma uses them the next time you open UtilityKit. Your version number is at the bottom of the Home screen.
 
 ## Good to know
 
 - Nothing changes in your file until you press a button, and every change can be undone with ⌘Z or Ctrl+Z.
-- The plugin goes online only to check for and download its own updates from GitHub. Nothing about your designs is sent anywhere.
-- **Update now** installs whatever is on the plugin's GitHub page, so only trusted people should be able to change that page.
+- The plugin never goes online. Nothing about your designs is sent anywhere.
 
 ## Something not working?
 
@@ -81,8 +77,6 @@ Updating does not change your Figma files. A new version can take a few minutes 
 |---|---|
 | The plugin isn't in the menu | Use the Figma desktop app and import `manifest.json` again. |
 | The buttons are grey | Select one or more layers on the canvas first. |
-| "Up to date" but a new version exists | Wait a few minutes and check again. |
-| No "Update now", only "Download update" | Download the ZIP and copy the files over your plugin folder. |
 | No Drive link found | Check that the page is named **For Designers**. |
 
 ## For people who edit the plugin
@@ -92,8 +86,4 @@ You need [Node.js](https://nodejs.org).
 1. Change the files in `src/`. Don't edit `code.js` or `ui.html` by hand; they are made from `src/`.
 2. Raise the version number in `version.json` and write what changed.
 3. Run `node build.js`, then `npm test`.
-4. Upload everything to GitHub. `code.js`, `ui.html` and `version.json` must go up together.
-
-The GitHub page has to stay **public**, or the plugin can't see new versions.
-
-Be careful with `src/plugin/05-loader.js`: it starts the plugin, and it is the one part **Update now** cannot replace.
+4. Share the whole folder with the team. Each person replaces their plugin folder with it.

@@ -8,7 +8,7 @@
  * Syntax is kept conservative on purpose (no optional chaining, no object
  * spread) because Figma's sandbox is stricter than a browser.
  */
-var UK = { VERSION: '2.0.0' };   // filled in from version.json by build.js
+var UK = { VERSION: '2.1.0' };   // filled in from version.json by build.js
 
 /** An error whose message is safe and useful to show to the designer. */
 UK.userError = function (message, code) {
@@ -51,172 +51,6 @@ UK.notify = function (message, isError) {
     figma.notify(message, isError ? { error: true, timeout: 5000 } : { timeout: 3000 });
   } catch (e) { /* notify is a nicety, never a reason to fail */ }
 };
-
-// ---- 05-loader.js ----
-/*
- * Loader — decides which copy of UtilityKit runs when the plugin starts.
- *
- * A Figma plugin cannot change the files in its own folder. What it can do is
- * keep a newer copy of its code in Figma's plugin storage and run that copy
- * instead. That is how "Update now" works:
- *
- *   1. The update is downloaded from the UtilityKit repository and saved here.
- *   2. On every start the loader runs the saved copy if it is newer than the
- *      files in the plugin folder; otherwise it runs the files in the folder.
- *
- * Safety nets:
- *   - A saved copy is marked "pending" each time it starts and "confirmed" once
- *     its interface has loaded. If it never confirms, the next start throws it
- *     away and goes back to the files in the plugin folder.
- *   - If the files in the folder are the same version or newer, the saved copy
- *     is deleted.
- *
- * The loader itself only changes when the files in the folder change, so keep
- * this API stable: start, confirm, save, clear, restart, info, canRun.
- */
-
-/** Turns source text into a function without running it. Kept at the top level so the
- *  evaluated code cannot see the loader's own variables. */
-function __ukCompile(source) {
-  return eval(source);
-}
-
-var UKLoader = (typeof UKLoader === 'object' && UKLoader) || (function () {
-  var KEY = 'utilitykit.update.v1';
-  var BUNDLED = '2.0.0';          // the version in the plugin folder
-  var MIN_CHARS = 1000;
-  var MAX_CHARS = 1500000;
-
-  var state = { source: 'bundled', version: BUNDLED, bundledVersion: BUNDLED, note: '' };
-  var bootBundled = null;
-  var api = {};
-
-  function parse(value) {
-    var m = /^(\d{1,5})\.(\d{1,5})\.(\d{1,5})$/.exec(String(value));
-    return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
-  }
-
-  function newer(a, b) {
-    var x = parse(a), y = parse(b);
-    if (!x || !y) return false;
-    for (var i = 0; i < 3; i++) {
-      if (x[i] !== y[i]) return x[i] > y[i];
-    }
-    return false;
-  }
-
-  function wrap(code) {
-    return '(function (figma, __html__, UKLoader, __UK_DOWNLOADED__) {\n' + code + '\n})';
-  }
-
-  /** Can this Figma run a saved copy at all? */
-  function canRun() {
-    try { return __ukCompile('(function () { return 7; })')() === 7; } catch (e) { return false; }
-  }
-
-  function valid(update) {
-    return !!update && typeof update === 'object' && !!parse(update.version) &&
-      typeof update.code === 'string' && typeof update.html === 'string' &&
-      update.code.length >= MIN_CHARS && update.code.length <= MAX_CHARS &&
-      update.html.length >= MIN_CHARS && update.html.length <= MAX_CHARS;
-  }
-
-  async function read() {
-    try {
-      var saved = await figma.clientStorage.getAsync(KEY);
-      return valid(saved) ? saved : null;
-    } catch (e) { return null; }
-  }
-
-  async function clear() {
-    try {
-      if (typeof figma.clientStorage.deleteAsync === 'function') await figma.clientStorage.deleteAsync(KEY);
-      else await figma.clientStorage.setAsync(KEY, null);
-    } catch (e) { /* nothing saved, nothing to clear */ }
-  }
-
-  /**
-   * Starts UtilityKit. `boot` starts the copy in the plugin folder; it is
-   * remembered so later restarts can fall back to it.
-   */
-  async function start(boot) {
-    if (typeof boot === 'function') bootBundled = boot;
-    state.source = 'bundled';
-    state.version = BUNDLED;
-    state.note = '';
-
-    var saved = await read();
-    if (saved && !newer(saved.version, BUNDLED)) {
-      await clear();                      // the folder has caught up with (or passed) the saved copy
-      saved = null;
-    }
-    if (saved && saved.pending) {
-      state.note = 'Update ' + saved.version + ' didn’t start properly, so UtilityKit went back to version ' + BUNDLED + '.';
-      await clear();
-      saved = null;
-    }
-    if (saved && !canRun()) saved = null;
-
-    if (saved) {
-      try {
-        var run = __ukCompile(wrap(saved.code));
-        saved.pending = true;
-        await figma.clientStorage.setAsync(KEY, saved);
-        state.source = 'downloaded';
-        state.version = saved.version;
-        run(figma, saved.html, api, true);
-        return info();
-      } catch (err) {
-        state.source = 'bundled';
-        state.version = BUNDLED;
-        state.note = 'Update ' + saved.version + ' couldn’t be started, so UtilityKit went back to version ' + BUNDLED + '.';
-        await clear();
-      }
-    }
-    if (bootBundled) bootBundled();
-    return info();
-  }
-
-  /** Called once the running copy's interface has loaded: the saved copy is good. */
-  async function confirm() {
-    if (state.source !== 'downloaded') return;
-    var saved = await read();
-    if (saved && saved.pending && saved.version === state.version) {
-      saved.pending = false;
-      try { await figma.clientStorage.setAsync(KEY, saved); } catch (e) { /* it will simply be retried next start */ }
-    }
-  }
-
-  /** Saves a downloaded copy. Throws if it is not usable; nothing is saved in that case. */
-  async function save(update) {
-    if (!canRun()) throw new Error('This version of Figma can’t run downloaded updates.');
-    if (!valid(update)) throw new Error('The downloaded update is incomplete.');
-    if (!newer(update.version, BUNDLED)) throw new Error('The downloaded update is not newer than the installed version.');
-    __ukCompile(wrap(update.code));       // a syntax error stops here, before anything is saved
-    await figma.clientStorage.setAsync(KEY, { version: update.version, code: update.code, html: update.html, pending: false, savedAt: Date.now() });
-  }
-
-  /** Stops the running copy (via `shutdown`) and starts again from the top. */
-  async function restart(shutdown) {
-    try { if (typeof shutdown === 'function') shutdown(); } catch (e) { /* start over regardless */ }
-    return start();
-  }
-
-  function info() {
-    return { source: state.source, version: state.version, bundledVersion: state.bundledVersion, note: state.note, canRun: canRun() };
-  }
-
-  api.KEY = KEY;
-  api.start = start;
-  api.confirm = confirm;
-  api.save = save;
-  api.clear = clear;
-  api.restart = restart;
-  api.info = info;
-  api.canRun = canRun;
-  api.newer = newer;
-  return api;
-})();
 
 // ---- 10-naming.js ----
 /*
@@ -1386,209 +1220,6 @@ UK.drive = (function () {
   };
 })();
 
-// ---- 50-updates.js ----
-/*
- * Check for updates — reads version.json from the UtilityKit GitHub repository
- * and compares it with the version that is running.
- *
- * What this can do: tell the designer a newer version exists, show its notes,
- * and open the download page.
- * What it cannot do: install the update. A Figma plugin has no access to the
- * files on the computer, including its own. Updating happens outside Figma
- * (git pull, the update script, or replacing the folder).
- *
- * version.json is remote data, so nothing in it is trusted: the version must
- * look like a version, and links are only used if they point at this repository.
- */
-UK.updates = (function () {
-  var REPO = 'hiteshramawat01-oss/UtilityKit';
-  var BRANCH = 'main';
-  var REPO_URL = 'https://github.com/' + REPO;
-  var VERSION_URL = 'https://raw.githubusercontent.com/' + REPO + '/' + BRANCH + '/version.json';
-  var DOWNLOAD_URL = REPO_URL + '/archive/refs/heads/' + BRANCH + '.zip';
-  var RAW_URL = 'https://raw.githubusercontent.com/' + REPO + '/' + BRANCH;
-  var CODE_URL = RAW_URL + '/code.js';
-  var UI_URL = RAW_URL + '/ui.html';
-
-  /** "1.2.0", "v1.2" -> [1, 2, 0]; anything else -> null */
-  function parseVersion(value) {
-    var m = /^v?(\d{1,5})\.(\d{1,5})(?:\.(\d{1,5}))?$/.exec(UK.collapse(value));
-    return m ? [Number(m[1]), Number(m[2]), Number(m[3] || 0)] : null;
-  }
-
-  function compare(a, b) {
-    for (var i = 0; i < 3; i++) {
-      if (a[i] !== b[i]) return a[i] > b[i] ? 1 : -1;
-    }
-    return 0;
-  }
-
-  /** Only links inside this repository are accepted; anything else falls back. */
-  function repoUrl(value, fallback) {
-    var v = typeof value === 'string' ? value.trim() : '';
-    if (/\s/.test(v)) return fallback;
-    if (v === REPO_URL || v.indexOf(REPO_URL + '/') === 0) return v;
-    return fallback;
-  }
-
-  /** Turns the text of version.json into a result for the interface. */
-  function evaluate(text) {
-    var data = null;
-    try { data = JSON.parse(text); } catch (e) { data = null; }
-    if (!data || typeof data !== 'object') {
-      throw UK.userError('The version information in the repository couldn’t be read (version.json is not valid).');
-    }
-    var latest = parseVersion(data.version);
-    if (!latest) throw UK.userError('The version information in the repository has no valid version number.');
-    var current = parseVersion(UK.VERSION);
-
-    var notes = [];
-    if (Array.isArray(data.notes)) {
-      for (var i = 0; i < data.notes.length && notes.length < 8; i++) {
-        var line = UK.collapse(data.notes[i]).slice(0, 160);
-        if (typeof data.notes[i] === 'string' && line) notes.push(line);
-      }
-    }
-    var released = /^\d{4}-\d{2}-\d{2}$/.test(String(data.released)) ? String(data.released) : '';
-    var order = compare(latest, current);
-    return {
-      current: UK.VERSION,
-      latest: latest.join('.'),
-      updateAvailable: order > 0,
-      ahead: order < 0,                      // running something newer than the repository
-      notes: order > 0 ? notes : [],
-      released: released,
-      downloadUrl: repoUrl(data.download, DOWNLOAD_URL),
-      pageUrl: repoUrl(data.page, REPO_URL),
-      canSelfUpdate: canSelfUpdate()
-    };
-  }
-
-  /**
-   * payload.text: the file's text, when the interface had to fetch it.
-   * Returns the result, or { fetchInUi, url } when this side cannot fetch.
-   */
-  async function check(payload) {
-    if (payload && typeof payload.text === 'string') return evaluate(payload.text);
-    if (typeof fetch !== 'function') return { fetchInUi: true, url: VERSION_URL };
-
-    var response;
-    try {
-      response = await fetch(VERSION_URL + '?t=' + Date.now(), { method: 'GET' });
-    } catch (err) {
-      throw UK.userError('Couldn’t reach GitHub to check for updates. Check your internet connection and try again.');
-    }
-    if (response.status === 404) {
-      throw UK.userError('No version information was found. The repository may be private, or version.json is missing from it.');
-    }
-    if (!response.ok) {
-      throw UK.userError('GitHub answered with an error (' + response.status + '). Try again in a few minutes.');
-    }
-    return evaluate(await response.text());
-  }
-
-  // ---- installing from inside the plugin ----------------------------------
-
-  /** True when an update can be downloaded and switched to without leaving Figma. */
-  function canSelfUpdate() {
-    return typeof fetch === 'function' && typeof UKLoader === 'object' && !!UKLoader && UKLoader.canRun();
-  }
-
-  function installInfo() {
-    var info = UKLoader.info();
-    return { source: info.source, bundledVersion: info.bundledVersion, note: info.note, canSelfUpdate: canSelfUpdate() };
-  }
-
-  async function fetchText(url) {
-    var response;
-    try {
-      response = await fetch(url + '?t=' + Date.now(), { method: 'GET' });
-    } catch (err) {
-      throw UK.userError('The download from GitHub was interrupted. Check your internet connection and try again.');
-    }
-    if (!response.ok) throw UK.userError('GitHub couldn\u2019t provide the update files (' + response.status + '). Try again in a few minutes.');
-    return response.text();
-  }
-
-  /** The version a downloaded file says it is, or ''. Both files must agree with version.json. */
-  function versionInCode(code) {
-    var m = /var UK = \{ VERSION: '(\d+\.\d+\.\d+)' \}/.exec(code);
-    return m ? m[1] : '';
-  }
-  function versionInHtml(html) {
-    var m = /<meta name="utilitykit-version" content="(\d+\.\d+\.\d+)">/.exec(html);
-    return m ? m[1] : '';
-  }
-
-  /**
-   * Downloads the latest code.js and ui.html from this repository and saves
-   * them as the copy to run. The addresses are fixed; nothing in version.json
-   * can point the download anywhere else. Nothing changes until restart().
-   */
-  async function install() {
-    if (!canSelfUpdate()) {
-      throw UK.userError('Updates can\u2019t be installed from inside Figma here. Use Download update instead.', 'UNSUPPORTED');
-    }
-    var latest = await check();
-    if (!latest.updateAvailable) return { installed: false, current: UK.VERSION, latest: latest.latest };
-
-    var code = await fetchText(CODE_URL);
-    var html = await fetchText(UI_URL);
-    if (versionInCode(code) !== latest.latest || versionInHtml(html) !== latest.latest) {
-      throw UK.userError('Version ' + latest.latest + ' is still being published on GitHub (its files don\u2019t match yet). Try again in a few minutes.', 'NOT_READY');
-    }
-    try {
-      await UKLoader.save({ version: latest.latest, code: code, html: html });
-    } catch (err) {
-      throw UK.userError('The update couldn\u2019t be installed: ' + UK.describeError(err).replace(/[.\s]*$/, '') + '. Your current version is unchanged.');
-    }
-    return { installed: true, version: latest.latest, previous: UK.VERSION };
-  }
-
-  /** Switches to whatever the loader now considers current (a saved update, or the folder's copy). */
-  function restart() {
-    return UKLoader.restart(UK.shutdown).then(function (info) {
-      UK.notify('UtilityKit is now on version ' + info.version);
-      return { restarted: true, version: info.version };
-    });
-  }
-
-  /** Forgets the saved update; after restart() the copy in the plugin folder runs again. */
-  async function remove() {
-    await UKLoader.clear();
-    return { removed: true };
-  }
-
-  /** Opens the download or repository page — only ever a link inside this repository. */
-  function open(payload) {
-    var wantsPage = payload && payload.which === 'page';
-    var url = repoUrl(payload && payload.url, wantsPage ? REPO_URL : DOWNLOAD_URL);
-    if (typeof figma.openExternal === 'function') {
-      figma.openExternal(url);
-      return { opened: true, url: url };
-    }
-    return { opened: false, url: url };
-  }
-
-  return {
-    REPO_URL: REPO_URL,
-    VERSION_URL: VERSION_URL,
-    DOWNLOAD_URL: DOWNLOAD_URL,
-    parseVersion: parseVersion,
-    compare: compare,
-    evaluate: evaluate,
-    check: check,
-    open: open,
-    canSelfUpdate: canSelfUpdate,
-    installInfo: installInfo,
-    install: install,
-    restart: restart,
-    remove: remove,
-    versionInCode: versionInCode,
-    versionInHtml: versionInHtml
-  };
-})();
-
 // ---- 90-main.js ----
 /*
  * Message router, saved settings and start-up.
@@ -1667,11 +1298,13 @@ UK.updates = (function () {
 
   var handlers = {
     'init': async function () {
-      // The interface is up and asking for data, so the running copy is good.
-      try { await UKLoader.confirm(); } catch (e) { /* confirmed next time */ }
+      // Started by an older UtilityKit's loader (see start-up below): tell it this copy runs fine,
+      // or it would throw this version away on the next start.
+      if (startedByOldLoader && typeof UKLoader !== 'undefined' && UKLoader && typeof UKLoader.confirm === 'function') {
+        try { await UKLoader.confirm(); } catch (e) { /* confirmed next time */ }
+      }
       return {
         version: UK.VERSION,
-        install: UK.updates.installInfo(),
         settings: await loadSettings(),
         selection: selectionInfo(),
         naming: { phases: UK.naming.PHASES, devices: UK.naming.DEVICES }
@@ -1738,12 +1371,6 @@ UK.updates = (function () {
     'drive.open': function (payload) { return UK.drive.open(payload); },
     'drive.goto': function (payload) { return UK.drive.goTo(payload); },
 
-    'update.check': function (payload) { return UK.updates.check(payload); },
-    'update.open': function (payload) { return UK.updates.open(payload); },
-    'update.install': function () { return UK.updates.install(); },
-    'update.restart': function () { return UK.updates.restart(); },
-    'update.remove': function () { return UK.updates.remove(); },
-
     'canvas.show': async function (payload) {
       var ids = payload && Array.isArray(payload.ids) ? payload.ids : [];
       var nodes = [];
@@ -1809,20 +1436,29 @@ UK.updates = (function () {
     figma.on('currentpagechange', pushSelection);
   };
 
-  /** Detaches this copy from Figma so another copy can take over (used when an update restarts the plugin). */
-  UK.shutdown = function () {
-    running = false;
-    try { figma.off('selectionchange', pushSelection); } catch (e) { /* not listening */ }
-    try { figma.off('currentpagechange', pushSelection); } catch (e2) { /* not listening */ }
-    UK._post = null;
+  /**
+   * Start-up. UtilityKit does not update itself: a new version reaches people only
+   * when the files in their plugin folder are replaced.
+   *
+   * One older case is kept working. UtilityKit v1.3 to v2.0 could install updates
+   * into Figma's plugin storage and run them through a small loader. If one of those
+   * copies installed this version, its loader starts this code and passes
+   * __UK_DOWNLOADED__ = true and itself (UKLoader). This version has no loader and
+   * never downloads anything.
+   */
+  var OLD_UPDATE_KEY = 'utilitykit.update.v1';
+  var startedByOldLoader = typeof __UK_DOWNLOADED__ !== 'undefined' && __UK_DOWNLOADED__ === true;
+
+  /** Running from the plugin folder: a copy saved by the old "Update now" is never used again, so remove it. */
+  UK.forgetOldUpdate = async function () {
+    try { await figma.clientStorage.deleteAsync(OLD_UPDATE_KEY); } catch (e) { /* nothing saved */ }
   };
 
-  // Start-up.
-  if (typeof __UK_DOWNLOADED__ !== 'undefined' && __UK_DOWNLOADED__ === true) {
-    UK.boot();                                 // this is a saved update, started by the loader
+  if (startedByOldLoader) {
+    UK.boot();
   } else if (typeof __UK_HEADLESS__ === 'undefined') {
-    // Let the loader choose: a newer saved update if there is one, otherwise this copy.
-    // (Tests define __UK_HEADLESS__ and drive UK.dispatch and UKLoader themselves.)
-    UKLoader.start(function () { UK.boot(); }).catch(function () { UK.boot(); });
+    // (Tests define __UK_HEADLESS__ and drive UK.dispatch themselves.)
+    UK.boot();
+    UK.forgetOldUpdate();
   }
 })();

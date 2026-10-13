@@ -75,11 +75,13 @@
 
   var handlers = {
     'init': async function () {
-      // The interface is up and asking for data, so the running copy is good.
-      try { await UKLoader.confirm(); } catch (e) { /* confirmed next time */ }
+      // Started by an older UtilityKit's loader (see start-up below): tell it this copy runs fine,
+      // or it would throw this version away on the next start.
+      if (startedByOldLoader && typeof UKLoader !== 'undefined' && UKLoader && typeof UKLoader.confirm === 'function') {
+        try { await UKLoader.confirm(); } catch (e) { /* confirmed next time */ }
+      }
       return {
         version: UK.VERSION,
-        install: UK.updates.installInfo(),
         settings: await loadSettings(),
         selection: selectionInfo(),
         naming: { phases: UK.naming.PHASES, devices: UK.naming.DEVICES }
@@ -146,12 +148,6 @@
     'drive.open': function (payload) { return UK.drive.open(payload); },
     'drive.goto': function (payload) { return UK.drive.goTo(payload); },
 
-    'update.check': function (payload) { return UK.updates.check(payload); },
-    'update.open': function (payload) { return UK.updates.open(payload); },
-    'update.install': function () { return UK.updates.install(); },
-    'update.restart': function () { return UK.updates.restart(); },
-    'update.remove': function () { return UK.updates.remove(); },
-
     'canvas.show': async function (payload) {
       var ids = payload && Array.isArray(payload.ids) ? payload.ids : [];
       var nodes = [];
@@ -217,20 +213,29 @@
     figma.on('currentpagechange', pushSelection);
   };
 
-  /** Detaches this copy from Figma so another copy can take over (used when an update restarts the plugin). */
-  UK.shutdown = function () {
-    running = false;
-    try { figma.off('selectionchange', pushSelection); } catch (e) { /* not listening */ }
-    try { figma.off('currentpagechange', pushSelection); } catch (e2) { /* not listening */ }
-    UK._post = null;
+  /**
+   * Start-up. UtilityKit does not update itself: a new version reaches people only
+   * when the files in their plugin folder are replaced.
+   *
+   * One older case is kept working. UtilityKit v1.3 to v2.0 could install updates
+   * into Figma's plugin storage and run them through a small loader. If one of those
+   * copies installed this version, its loader starts this code and passes
+   * __UK_DOWNLOADED__ = true and itself (UKLoader). This version has no loader and
+   * never downloads anything.
+   */
+  var OLD_UPDATE_KEY = 'utilitykit.update.v1';
+  var startedByOldLoader = typeof __UK_DOWNLOADED__ !== 'undefined' && __UK_DOWNLOADED__ === true;
+
+  /** Running from the plugin folder: a copy saved by the old "Update now" is never used again, so remove it. */
+  UK.forgetOldUpdate = async function () {
+    try { await figma.clientStorage.deleteAsync(OLD_UPDATE_KEY); } catch (e) { /* nothing saved */ }
   };
 
-  // Start-up.
-  if (typeof __UK_DOWNLOADED__ !== 'undefined' && __UK_DOWNLOADED__ === true) {
-    UK.boot();                                 // this is a saved update, started by the loader
+  if (startedByOldLoader) {
+    UK.boot();
   } else if (typeof __UK_HEADLESS__ === 'undefined') {
-    // Let the loader choose: a newer saved update if there is one, otherwise this copy.
-    // (Tests define __UK_HEADLESS__ and drive UK.dispatch and UKLoader themselves.)
-    UKLoader.start(function () { UK.boot(); }).catch(function () { UK.boot(); });
+    // (Tests define __UK_HEADLESS__ and drive UK.dispatch themselves.)
+    UK.boot();
+    UK.forgetOldUpdate();
   }
 })();

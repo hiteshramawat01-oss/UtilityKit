@@ -21,15 +21,6 @@ def serve():
     threading.Thread(target=server.serve_forever, daemon=True).start()
     return server
 
-def release(version, marker):
-    """The real plugin files re-stamped as another version: what a later release looks like on GitHub."""
-    code = (ROOT.parent / "code.js").read_text()
-    html = (ROOT.parent / "ui.html").read_text()
-    code = re.sub(r"var UK = \{ VERSION: '[\d.]+' \}", "var UK = { VERSION: '%s' }" % version, code)
-    html = re.sub(r'(utilitykit-version" content=")[\d.]+', r"\g<1>%s" % version, html)
-    html = html.replace("Everyday design utilities in one place.", marker)
-    return {"v": '{"version":"%s","notes":["New: something useful."]}' % version, "code": code, "html": html}
-
 def run():
     with sync_playwright() as p:
         browser = p.chromium.launch()
@@ -43,16 +34,16 @@ def run():
         ev = page.evaluate
 
         # ── Home ──
-        expect(ui.locator("#version")).to_have_text("v2.0.0")
+        expect(ui.locator("#version")).to_have_text("v2.1.0")
         expect(ui.locator("#selPill")).to_be_hidden()                # no selection count on Home
-        # no Settings page or icon; the footer has the version on the left and Check for updates on the right
+        # no Settings page or icon, and no way to update from inside the plugin: the footer is just the version
         expect(ui.locator("#openSettings")).to_have_count(0)
         expect(ui.locator('section[data-screen="settings"]')).to_have_count(0)
+        expect(ui.locator("#updCheck, #updBox")).to_have_count(0)
+        expect(ui.locator("body")).not_to_contain_text("Check for updates")
+        expect(ui.locator(".foot")).to_have_text("v2.1.0")
         vbox = ui.locator("#version").bounding_box()
-        cbox = ui.locator("#updCheck").bounding_box()
-        assert vbox["x"] < 24 and cbox["x"] + cbox["width"] > 360 - 24, "version left, Check for updates right"
-        assert abs((vbox["y"] + vbox["height"] / 2) - (cbox["y"] + cbox["height"] / 2)) < 3, "on one line"
-        expect(ui.locator("#updCheck")).to_have_text("Check for updates")
+        assert abs((vbox["x"] + vbox["width"] / 2) - 180) < 2, "the version is centred"
         shot("01-home")
 
         # ── About: reached from the icon in the top-right corner of Home ──
@@ -66,39 +57,11 @@ def run():
         expect(about).to_contain_text("What it is")
         expect(about).to_contain_text("Why it was made")
         expect(about.locator("li")).to_have_count(4)
-        expect(ui.locator("#aboutVersion")).to_have_text("UtilityKit v2.0.0")
+        expect(ui.locator("#aboutVersion")).to_have_text("UtilityKit v2.1.0")
         shot("01b-about")
         ui.locator("#back").click()
         expect(ui.locator("#brand")).to_be_visible()
         expect(ui.locator("#openAbout")).to_be_visible()
-
-        # ── Home: check for updates ──
-        ui.locator("#updCheck").click()                              # repository has no version.json / is private
-        expect(ui.locator("#toast")).to_contain_text("may be private")
-        expect(ui.locator("#updBox")).to_be_hidden()
-        assert "raw.githubusercontent.com/hiteshramawat01-oss/UtilityKit/main/version.json" in ev("env.log.fetched[0]")
-        ev("window.__versionJson = 'offline'")
-        ui.locator("#updCheck").click()
-        expect(ui.locator("#toast")).to_contain_text("Couldn’t reach GitHub")
-        ev("window.__versionJson = JSON.stringify({ version: UK.VERSION })")
-        ui.locator("#updCheck").click()
-        expect(ui.locator("#toast")).to_have_text("You’re up to date (v2.0.0).")
-        expect(ui.locator("#updBox")).to_be_hidden()
-        ev("""window.__versionJson = JSON.stringify({ version: '9.9.0', released: '2026-11-02',
-              notes: ['New: Export presets.', 'Fix: renaming inside instances.'],
-              download: 'https://evil.example.com/malware.zip' })""")
-        ui.locator("#updCheck").click()
-        expect(ui.locator("#updBox")).to_contain_text("Version 9.9.0 is available")
-        expect(ui.locator("#updBox")).to_contain_text("You have v2.0.0. Released 2026-11-02.")
-        expect(ui.locator("#updBox li")).to_have_count(2)
-        expect(ui.locator("#updCheck")).to_have_text("Check for updates")
-        expect(ui.locator('#updBox [data-act="install"]')).to_have_text("Update now")
-        shot("01c-home-update")
-        expect(ui.locator("#updBox .btn")).to_have_text(["Update now", "Later"])       # nothing else to choose
-        expect(ui.locator("#updBox")).not_to_contain_text("Get the files")
-        expect(ui.locator('#updBox [data-act="download"]')).to_have_count(0)
-        ui.locator("#updBox .btn", has_text="Later").click()
-        expect(ui.locator("#updBox")).to_be_hidden()
 
         # ── Layer Renamer: the client is asked once, before anything else ──
         CLIENT = "All-fit Automotive & Parts"
@@ -271,7 +234,7 @@ def run():
         saved_file = ev("figma.root.getPluginData('utilitykit.file.v1')")
         ev("figma.root.setPluginData('utilitykit.file.v1', '')")
         ev("launch()")
-        expect(ui.locator("#version")).to_have_text("v2.0.0")
+        expect(ui.locator("#version")).to_have_text("v2.1.0")
         ui.locator('[data-go="renamer"]').click()
         expect(ui.locator("#rnForm")).to_be_visible()
         expect(ui.locator("#rnAsk")).to_be_hidden()
@@ -279,7 +242,7 @@ def run():
         ui.locator("#back").click()
         ev("(v) => figma.root.setPluginData('utilitykit.file.v1', v)", saved_file)
         ev("launch()")
-        expect(ui.locator("#version")).to_have_text("v2.0.0")
+        expect(ui.locator("#version")).to_have_text("v2.1.0")
 
         # a new session: the deliverable typed earlier is not remembered; the box is empty again
         ui.locator('[data-go="renamer"]').click()
@@ -421,63 +384,8 @@ def run():
         shot("14-home-dark")
         page.frames[1].evaluate("document.documentElement.classList.remove('figma-dark')")
 
-        # ── Update now: installs inside Figma, no files to replace ──
-        KEY = "utilitykit.update.v1"
-        load_release = "(f) => { window.__versionJson = f.v; window.__remoteFiles = { 'code.js': f.code, 'ui.html': f.html }; }"
-        saved = lambda: ev("env.storage['%s'] ? JSON.parse(env.storage['%s']) : null" % (KEY, KEY))
-
-        # a release that is only half published is refused and nothing changes
-        half = release("9.9.0", "UPDATED BUILD 9.9.0")
-        half["code"] = half["code"].replace("VERSION: '9.9.0'", "VERSION: '9.8.0'")
-        ev(load_release, half)
-        ui.locator("#updCheck").click()
-        expect(ui.locator("#updBox")).to_contain_text("Version 9.9.0 is available")
-        ui.locator('#updBox [data-act="install"]').click()
-        expect(ui.locator("#toast")).to_contain_text("still being published")
-        expect(ui.locator('#updBox [data-act="install"]')).to_have_text("Update now")
-        assert saved() is None
-        expect(ui.locator("#version")).to_have_text("v2.0.0")
-
-        # the real thing
-        ev(load_release, release("9.9.0", "UPDATED BUILD 9.9.0"))
-        ui.locator('#updBox [data-act="install"]').click()
-        expect(ui.locator("#version")).to_have_text("v9.9.0")                   # the window restarted into the new version
-        expect(ui.locator(".lede")).to_have_text("UPDATED BUILD 9.9.0")
-        expect(ui.locator("#updBox")).to_be_hidden()
-        page.wait_for_function("JSON.parse(env.storage['%s']).pending === false" % KEY)
-        assert ev("env.listeners.selectionchange.length") == 1
-        assert any("now on version 9.9.0" in n["message"] for n in ev("env.log.notifications"))
-        shot("15-updated")
-        # the updated copy is fully working
-        ev("env.select([demo.c])")
-        expect(ui.locator("#selText")).to_have_text("1 selected")
-        ui.locator('[data-go="renamer"]').click()
-        expect(ui.locator("#rnExampleName")).to_have_text("Homepage_Mockups_AllfitAutomotiveAndParts_V1")   # this file's own client and phase came back
-        ui.locator("#back").click()
-        ui.locator("#updCheck").click()
-        expect(ui.locator("#toast")).to_have_text("You’re up to date (v9.9.0).")
-
-        # closing and reopening the plugin keeps the update
-        ev("launch()")
-        expect(ui.locator(".lede")).to_have_text("UPDATED BUILD 9.9.0")
-        expect(ui.locator("#version")).to_have_text("v9.9.0")
-        shot("16-home-updated")
-
-        # the downloaded copy can still be dropped (the plugin keeps this; the interface no longer offers it)
-        ev("env.storage['%s'] = undefined; delete env.storage['%s']; launch()" % (KEY, KEY))
-        expect(ui.locator("#version")).to_have_text("v2.0.0")
-        expect(ui.locator(".lede")).to_have_text("Everyday design utilities in one place.")
-
-        # safety net: an update that started but never finished loading is dropped on the next launch
-        ui.locator("#updCheck").click()
-        ui.locator('#updBox [data-act="install"]').click()
-        expect(ui.locator("#version")).to_have_text("v9.9.0")
-        page.wait_for_function("JSON.parse(env.storage['%s']).pending === false" % KEY)
-        ev("(() => { const s = JSON.parse(env.storage['%s']); s.pending = true; env.storage['%s'] = JSON.stringify(s); })()" % (KEY, KEY))
-        ev("launch()")
-        expect(ui.locator("#version")).to_have_text("v2.0.0")
-        expect(ui.locator("#toast")).to_contain_text("Update 9.9.0 didn’t start properly")
-        assert saved() is None
+        # ── the plugin never went online ──
+        assert ev("env.log.fetched || []") == [], "no network request was made"
 
         browser.close()
         server.shutdown()

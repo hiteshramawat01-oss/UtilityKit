@@ -107,9 +107,7 @@
     version: '',
     autoPageType: '',        // the page type read from the current Figma page
     versionsAuto: '',        // what the selected frames would get without typing anything
-    versionsEdited: false,
-    install: null,           // which copy is running: the plugin folder's, or a downloaded update
-    installing: false
+    versionsEdited: false
   };
 
   var TITLES = { renamer: 'Layer Renamer', flatten: 'Flatten & Merge', drive: 'Google Drive Links', about: 'About' };
@@ -628,108 +626,10 @@
     });
   }
 
-  // ── Check for updates ───────────────────────────────────────────────────
-
-  function fetchVersionFile(url) {
-    // Only used when the plugin side has no fetch of its own.
-    return fetch(url + '?t=' + Date.now(), { cache: 'no-store' }).then(function (r) {
-      if (r.status === 404) throw new Error('No version information was found. The repository may be private, or version.json is missing from it.');
-      if (!r.ok) throw new Error('GitHub answered with an error (' + r.status + '). Try again in a few minutes.');
-      return r.text();
-    }, function () {
-      throw new Error('Couldn\u2019t reach GitHub to check for updates. Check your internet connection and try again.');
-    });
-  }
-
-  function checkUpdates(buttonId) {
-    var btn = $(buttonId);
-    if (state.updateBusy) return;
-    state.updateBusy = true;
-    btn.disabled = true;
-    btn.textContent = 'Checking\u2026';
-    var finish = function () { state.updateBusy = false; btn.disabled = false; btn.textContent = 'Check for updates'; };
-    call('update.check').then(function (res) {
-      if (res && res.fetchInUi) {
-        return fetchVersionFile(res.url).then(function (text) { return call('update.check', { text: text }); });
-      }
-      return res;
-    }).then(function (res) {
-      finish();
-      state.update = res;
-      state.updateDismissed = false;
-      renderUpdate();
-      if (res.updateAvailable) { $('toast').hidden = true; $('updBox').scrollIntoView({ block: 'nearest' }); }
-      else if (res.ahead) toast('You\u2019re on v' + res.current + ', newer than the published v' + res.latest + '.');
-      else toast('You\u2019re up to date (v' + res.current + ').');
-    }).catch(function (err) { finish(); fail(err); });
-  }
-
-  function openUpdate(which, url) {
-    call('update.open', { which: which, url: url }).then(function (res) {
-      if (!res.opened) window.open(res.url, '_blank', 'noopener');
-    }).catch(fail);
-  }
-
-  /** The update notice sits at the top of Home, where "Check for updates" is pressed. */
-  function renderUpdate() {
-    var box = clear($('updBox'));
-    var u = state.update;
-    if (!u || !u.updateAvailable || state.updateDismissed) { box.hidden = true; return; }
-    var later = h('button', { class: 'btn small', type: 'button', disabled: state.installing, onclick: function () { state.updateDismissed = true; renderUpdate(); } }, 'Later');
-    var extra;
-    if (u.canSelfUpdate) {
-      // This Figma can switch to the new version in place.
-      extra = h('div', { class: 'note-body' },
-        h('p', null, 'You have v' + u.current + '.' + (u.released ? ' Released ' + u.released + '.' : '')),
-        u.notes.length ? h('ul', null, u.notes.map(function (n) { return h('li', null, n); })) : null,
-        h('p', null, 'Installs here in a few seconds. Your files and saved settings are not touched.'),
-        h('div', { class: 'note-btns' },
-          h('button', { class: 'btn small primary' + (state.installing ? ' busy' : ''), type: 'button', disabled: state.installing, 'data-act': 'install', onclick: installUpdate },
-            state.installing ? 'Updating…' : 'Update now'),
-          later));
-    } else {
-      extra = h('div', { class: 'note-body' },
-        h('p', null, 'You have v' + u.current + '.' + (u.released ? ' Released ' + u.released + '.' : '')),
-        u.notes.length ? h('ul', null, u.notes.map(function (n) { return h('li', null, n); })) : null,
-        h('p', null, 'It can’t be installed from inside Figma here. Run the update script in the plugin folder (or pull the repository), then run UtilityKit again.'),
-        h('div', { class: 'note-btns' },
-          h('button', { class: 'btn small primary', type: 'button', 'data-act': 'download', onclick: function () { openUpdate('download', u.downloadUrl); } }, 'Download update'),
-          h('button', { class: 'btn small', type: 'button', onclick: function () { openUpdate('page', u.pageUrl); } }, 'View on GitHub'),
-          later));
-    }
-    box.appendChild(note('info', 'Version ' + u.latest + ' is available', [], extra));
-    box.hidden = false;
-  }
-
-  /** Downloads the new version into Figma's plugin storage, then restarts into it. */
-  function installUpdate() {
-    if (state.installing) return;
-    state.installing = true;
-    renderUpdate();
-    call('update.install').then(function (res) {
-      if (!res.installed) {
-        state.installing = false;
-        state.update = null;
-        renderUpdate();
-        toast('You’re already up to date (v' + res.current + ').');
-        return;
-      }
-      toast('Updated to v' + res.version + ' — restarting…');
-      // The plugin now replaces this whole interface with the new version's.
-      call('update.restart').catch(function (err) { state.installing = false; renderUpdate(); fail(err); });
-    }).catch(function (err) {
-      state.installing = false;
-      if (err.code === 'UNSUPPORTED' && state.update) state.update.canSelfUpdate = false;
-      renderUpdate();
-      fail(err);
-    });
-  }
-
   // ── wiring ──────────────────────────────────────────────────────────────
 
   function bind() {
     $('back').addEventListener('click', goBack);
-    $('updCheck').addEventListener('click', function () { checkUpdates('updCheck'); });
     $('openAbout').addEventListener('click', function () { go('about'); });
     var tools = document.querySelectorAll('[data-go]');
     for (var i = 0; i < tools.length; i++) {
@@ -818,10 +718,8 @@
       $('version').textContent = 'v' + data.version;
       $('aboutVersion').textContent = 'UtilityKit v' + data.version;
       state.version = data.version;
-      state.install = data.install || null;
       renderSelection();
       renderRenamerOptions();
-      if (state.install && state.install.note) toast(state.install.note, true);
     }).catch(fail);
   }
 

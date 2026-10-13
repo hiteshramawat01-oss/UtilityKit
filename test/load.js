@@ -10,7 +10,7 @@ module.exports = function load(options) {
   const sandbox = { figma: env.figma, console, __UK_HEADLESS__: true, __html__: 'BUNDLED-UI' };
   vm.createContext(sandbox);
   const code = fs.readFileSync(path.join(__dirname, '..', 'code.js'), 'utf8');
-  vm.runInContext(code + '\n;this.UK = UK; this.UKLoader = UKLoader;', sandbox, { filename: 'code.js' });
+  vm.runInContext(code + '\n;this.UK = UK;', sandbox, { filename: 'code.js' });
   const UK = sandbox.UK;
   const events = [];
   UK._post = (m) => events.push(m);
@@ -20,5 +20,5 @@ module.exports = function load(options) {
     // round-trip through JSON: results must survive postMessage
     return JSON.parse(JSON.stringify(res));
   };
-  return { UK, UKLoader: sandbox.UKLoader, env, call, events, sandbox, code };
+  return { UK, env, call, events, sandbox, code };
 };

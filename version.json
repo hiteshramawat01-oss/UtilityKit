@@ -1,10 +1,7 @@
 {
-  "version": "2.0.0",
-  "released": "2026-10-11",
+  "version": "2.1.0",
+  "released": "2026-10-13",
   "notes": [
-    "Version 2: every screen has been simplified, one job and one button each.",
-    "New About page: what UtilityKit is and why it was made. Open it from the info icon at the top right of Home."
-  ],
-  "download": "https://github.com/hiteshramawat01-oss/UtilityKit/archive/refs/heads/main.zip",
-  "page": "https://github.com/hiteshramawat01-oss/UtilityKit"
+    "UtilityKit no longer updates itself. Check for updates and Update now are removed, and the plugin never goes online. A new version is installed by replacing the plugin folder."
+  ]
 }

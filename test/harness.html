@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <!--
   Runs the real ui.html and the real code.js on top of a mock Figma — including
-  start-up, so the loader, "Update now" and restarts behave as they do in Figma.
+  start-up, so it opens the way it does in Figma.
   Serve the project folder over http and open /test/harness.html
   (test/e2e.py does this for you).
 -->
@@ -25,24 +25,15 @@
     if (figma.ui.onmessage) figma.ui.onmessage(msg);
   });
 
-  // GitHub, answered locally. version.json comes from __versionJson (null = not found,
-  // 'offline' = network error); code.js and ui.html come from __remoteFiles.
-  window.__versionJson = null;
-  window.__remoteFiles = {};
+  // UtilityKit never goes online. Any request other than loading these local files is
+  // recorded (and refused), so the click-through can check that none was made.
   var realFetch = window.fetch;
   window.fetch = function (url) {
     var u = String(url);
-    var at = u.indexOf('raw.githubusercontent.com');
-    if (at === -1) return realFetch.apply(this, arguments);
+    if (/^(\.\.\/|\/|http:\/\/127\.0\.0\.1)/.test(u)) return realFetch.apply(this, arguments);
     (env.log.fetched = env.log.fetched || []).push(u);
-    var name = u.replace(/\?.*$/, '').split('/main/')[1];
-    var body = name === 'version.json' ? window.__versionJson : window.__remoteFiles[name];
-    if (body === 'offline') return Promise.reject(new TypeError('Failed to fetch'));
-    return Promise.resolve(body === null || body === undefined
-      ? { ok: false, status: 404, text: function () { return Promise.resolve('404: Not Found'); } }
-      : { ok: true, status: 200, text: function () { return Promise.resolve(body); } });
+    return Promise.reject(new TypeError('UtilityKit must not go online'));
   };
-
   // A small demo document so the harness is useful by hand too.
   var art = env.add('FRAME', { name: 'Desktop', x: 0, y: 0, width: 1440, height: 3200 });
   window.demo = {
